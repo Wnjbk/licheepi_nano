@@ -1,0 +1,54 @@
+# ============================================
+# F1C200S / LicheePi Nano Project - gitignore
+# ============================================
+
+# --- Full source trees (EXCLUDED - too large) ---
+# Only config files from these are force-added:
+#   linux/.config, linux/arch/arm/boot/dts/suniv*.dts*
+#   u-boot/.config, u-boot/configs/*defconfig, u-boot/arch/arm/dts/suniv*.dts*
+#   buildroot/.config
+linux/
+u-boot/
+buildroot-2018.02.11/
+
+# --- RootFS ---
+debian/
+
+# --- Binary & Image files ---
+*.img
+*.tar.gz
+*.bin
+*.mp4
+*.mkv
+*.scr
+*.elf
+*.out
+
+# --- Build artifacts ---
+*.o
+*.ko
+*.mod.c
+*.mod
+*.symvers
+*.order
+*.a
+*.so
+*.so.*
+modules.builtin
+Module.symvers
+Module.markers
+
+# --- Editor & temp files ---
+*~
+*.swp
+*.swo
+.DS_Store
+
+# --- Build output dirs ---
+output/
+build/
+
+# --- Kernel specific build artifacts ---
+vmlinux*
+System.map*
+.tmp_*

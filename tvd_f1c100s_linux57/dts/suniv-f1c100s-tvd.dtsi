@@ -1,0 +1,19 @@
+#include <dt-bindings/clock/suniv-ccu-f1c100s.h>
+#include <dt-bindings/reset/suniv-ccu-f1c100s.h>
+
+&{/soc} {
+	tvd: tvd@1c0b000 {
+		compatible = "allwinner,suniv-f1c100s-tvd";
+		reg = <0x01c0b000 0x1000>;
+		interrupts = <27>;
+		clocks = <&ccu CLK_BUS_TVD>,
+			 <&ccu CLK_TVD>;
+		clock-names = "bus", "mod";
+		resets = <&ccu RST_BUS_TVD>;
+		reset-names = "bus";
+		allwinner,input-channel = <0>;
+		allwinner,default-standard = "ntsc";
+		allwinner,blue-screen-mode = <2>;
+		status = "okay";
+	};
+};

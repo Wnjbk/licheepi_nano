@@ -1,0 +1,1 @@
+cmd_/home/wnk/LicheePi_Nano/tvd_f1c100s_linux57/src/suniv_f1c100s_tvd.mod := { echo  /home/wnk/LicheePi_Nano/tvd_f1c100s_linux57/src/suniv_f1c100s_tvd.o; echo; } > /home/wnk/LicheePi_Nano/tvd_f1c100s_linux57/src/suniv_f1c100s_tvd.mod

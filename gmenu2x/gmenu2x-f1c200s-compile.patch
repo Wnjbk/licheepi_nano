@@ -1,0 +1,25 @@
+diff --git a/src/gmenu2x.cpp b/src/gmenu2x.cpp
+--- a/src/gmenu2x.cpp
++++ b/src/gmenu2x.cpp
+@@ -911,19 +911,12 @@ void GMenu2X::hideActionLinks() {
+ 
+ 	SettingsDialog sd(this, ts, tr["Show/Hide Action Links"], "skin:icons/configure.png");
+ 	sd.allowCancel_nomb = true;
+-	if (
+-		confInt["hideExplorer"] &&
++	if (confInt["hideExplorer"] &&
+ #if defined(HW_EXT_SD)
+ 		confInt["hideUmount"] &&
+ #endif
+ 		confInt["hideSkin"] && confInt["hideSettings"] && confInt["hideAbout"] && confInt["hidePower"] && confInt["hideCpuSettings"] && confInt["hideRaSettings"] &&
+-#if defined(HW_UDC)
+-		confInt["hideUsbSettings"] &&
+-#endif
+-#if defined(HW_TVOUT)
+-		confInt["hideTvSettings"]
+-#endif
+-		) sd.addSetting(new MenuSettingBool(this, tr["Show ALL"], tr["Unhide all Action links"], &unhide_all));
++		1) sd.addSetting(new MenuSettingBool(this, tr["Show ALL"], tr["Unhide all Action links"], &unhide_all));
+ 	else {
+ 		sd.addSetting(new MenuSettingBool(this, tr["Hide ALL"], tr["Hide all Action links"], &hide_all));
+ 		sd.addSetting(new MenuSettingBool(this, tr["Explorer"], tr["Hide"] + " " + tr["Explorer"], &confInt["hideExplorer"]));

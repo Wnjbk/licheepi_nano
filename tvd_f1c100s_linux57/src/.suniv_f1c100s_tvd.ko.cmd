@@ -1,0 +1,1 @@
+cmd_/home/wnk/LicheePi_Nano/tvd_f1c100s_linux57/src/suniv_f1c100s_tvd.ko := arm-linux-gnueabi-ld -r  -EL  --build-id  -T ./scripts/module-common.lds -o /home/wnk/LicheePi_Nano/tvd_f1c100s_linux57/src/suniv_f1c100s_tvd.ko /home/wnk/LicheePi_Nano/tvd_f1c100s_linux57/src/suniv_f1c100s_tvd.o /home/wnk/LicheePi_Nano/tvd_f1c100s_linux57/src/suniv_f1c100s_tvd.mod.o;  true

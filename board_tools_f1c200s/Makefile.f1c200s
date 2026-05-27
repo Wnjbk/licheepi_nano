@@ -1,0 +1,50 @@
+.RECIPEPREFIX := >
+
+ROOT ?= $(HOME)/LicheePi_Nano
+BUILDROOT ?= $(firstword $(wildcard $(ROOT)/buildroot-2018.02.11 $(ROOT)/buildroot-2018.02))
+HOST_BIN := $(BUILDROOT)/output/host/bin
+
+TOOLCHAIN_GCC := $(firstword $(wildcard $(HOST_BIN)/*-gcc))
+ifeq ($(TOOLCHAIN_GCC),)
+$(error Cannot find Buildroot cross gcc under $(HOST_BIN))
+endif
+
+CROSS_PREFIX := $(patsubst %-gcc,%,$(TOOLCHAIN_GCC))-
+CC := $(CROSS_PREFIX)gcc
+STRIP := $(CROSS_PREFIX)strip
+
+TARGET := uinput_tty_keyd
+DISTDIR := dist/f1c200s
+PACKAGE := dist/uinput_tty_keyd-f1c200s.tar.gz
+
+CFLAGS += -O2 -g -Wall -Wextra -std=gnu99
+CFLAGS += -march=armv5te -mtune=arm926ej-s -marm -msoft-float
+
+all: pack
+
+$(DISTDIR):
+>mkdir -p $(DISTDIR)
+
+$(DISTDIR)/$(TARGET): uinput_tty_keyd.c | $(DISTDIR)
+>$(CC) $(CFLAGS) -o $@ $<
+
+strip: $(DISTDIR)/$(TARGET)
+>$(STRIP) $(DISTDIR)/$(TARGET)
+
+pack: strip
+>cp -a enable_uinput.sh $(DISTDIR)/
+>cp -a run_uinput_tty_keyd.sh $(DISTDIR)/
+>cp -a S50uinput-keyd $(DISTDIR)/
+>cp -a uinput_tty_keyd.conf.example $(DISTDIR)/
+>cp -a README.uinput_tty_keyd.md $(DISTDIR)/
+>tar -cf dist/uinput_tty_keyd-f1c200s.tar -C $(DISTDIR) .
+>gzip -c dist/uinput_tty_keyd-f1c200s.tar > $(PACKAGE)
+
+clean:
+>rm -rf dist
+
+print-tools:
+>@echo BUILDROOT=$(BUILDROOT)
+>@echo HOST_BIN=$(HOST_BIN)
+>@echo CC=$(CC)
+>@echo STRIP=$(STRIP)

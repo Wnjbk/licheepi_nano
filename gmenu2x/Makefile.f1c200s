@@ -1,0 +1,93 @@
+# GMenu2X/GMenuNX Makefile for F1C200S + Buildroot 2018.02.11 + SDL1.2
+# Put this file at the root of MiyooCFW/gmenu2x, then run: make -f Makefile.f1c200s
+
+ROOT ?= $(HOME)/LicheePi_Nano
+BUILDROOT ?= $(firstword $(wildcard $(ROOT)/buildroot-2018.02.11 $(ROOT)/buildroot-2018.02))
+HOST_BIN := $(BUILDROOT)/output/host/bin
+HOST_GCC := $(firstword \
+	$(wildcard $(HOST_BIN)/arm-buildroot-linux-gnueabi-gcc) \
+	$(wildcard $(HOST_BIN)/arm-buildroot-linux-uclibcgnueabi-gcc) \
+	$(wildcard $(HOST_BIN)/arm-linux-gnueabi-gcc) \
+	$(wildcard $(HOST_BIN)/arm-linux-gcc))
+
+CROSS_COMPILE ?= $(patsubst %gcc,%,$(HOST_GCC))
+CC := $(CROSS_COMPILE)gcc
+CXX := $(CROSS_COMPILE)g++
+STRIP := $(CROSS_COMPILE)strip
+PKG_CONFIG ?= $(HOST_BIN)/pkg-config
+SYSROOT := $(shell $(CC) --print-sysroot)
+SDL_CONFIG ?= $(SYSROOT)/usr/bin/sdl-config
+
+PLATFORM := linux
+OBJDIR := objs/f1c200s
+DISTDIR := dist/f1c200s
+TARGET := $(DISTDIR)/gmenu2x
+PACK_TAR := dist/gmenu2x-f1c200s.tar
+PACK_TGZ := dist/gmenu2x-f1c200s.tar.gz
+
+PKG_CONFIG_ENV := env PKG_CONFIG_SYSROOT_DIR=$(SYSROOT) PKG_CONFIG_LIBDIR=$(SYSROOT)/usr/lib/pkgconfig:$(SYSROOT)/usr/share/pkgconfig
+PKG_LIBS := $(shell $(PKG_CONFIG_ENV) $(PKG_CONFIG) --libs sdl SDL_image SDL_ttf SDL_mixer 2>/dev/null)
+SDL_CFLAGS := $(shell $(SDL_CONFIG) --cflags 2>/dev/null)
+SDL_LIBS := $(shell $(SDL_CONFIG) --libs 2>/dev/null)
+
+SOURCES := $(wildcard src/*.cpp)
+OBJS := $(patsubst src/%.cpp,$(OBJDIR)/%.o,$(SOURCES))
+DEPS := $(OBJS:.o=.d)
+
+BUILDTIME := "$(shell date +%F\ %H:%M)"
+COMMIT_HASH := "f1c200s"
+
+CXXFLAGS += -DPLATFORM=\"$(PLATFORM)\" -D__BUILDTIME__=$(BUILDTIME) -D__COMMIT_HASH__=$(COMMIT_HASH)
+CXXFLAGS += -DTARGET_LINUX -DF1C200S_BUILD -DNO_EXTRA_SD -DLOG_LEVEL=3
+CXXFLAGS += -Isrc -O2 -g -Wall -Wno-deprecated -Wno-format -Wno-narrowing
+CXXFLAGS += -std=gnu++11 -funsigned-char -fno-strict-aliasing
+CXXFLAGS += -march=armv5te -mtune=arm926ej-s -marm -msoft-float
+CXXFLAGS += $(SDL_CFLAGS)
+
+LIBS := $(PKG_LIBS)
+ifeq ($(strip $(LIBS)),)
+LIBS := $(SDL_LIBS) -lSDL_image -lSDL_ttf -lSDL_mixer -lfreetype -ljpeg -lpng -lz -lvorbisfile -lvorbis -logg -lbz2 -lmpg123
+endif
+LIBS += -lm -ldl -lpthread
+
+all: pack
+
+build: $(TARGET)
+
+$(OBJDIR):
+	mkdir -p $(OBJDIR) $(DISTDIR)
+
+$(OBJDIR)/%.o: src/%.cpp | $(OBJDIR)
+	$(CXX) $(CXXFLAGS) -MMD -MP -c -o $@ $<
+
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) $(LIBS) -o $(TARGET)
+
+strip: $(TARGET)
+	$(STRIP) $(TARGET)
+
+dist: strip
+	mkdir -p $(DISTDIR)/skins/Default
+	cp -a assets/skin-Default/* $(DISTDIR)/skins/Default/ 2>/dev/null || true
+	cp -a assets/translations $(DISTDIR)/ 2>/dev/null || true
+	cp -a assets/linux/input.conf $(DISTDIR)/input.conf 2>/dev/null || true
+	cp -a *about*.txt COPYING CONTRIBUTORS.md ChangeLog.md README.md $(DISTDIR)/ 2>/dev/null || true
+
+pack: dist
+	rm -f $(PACK_TAR) $(PACK_TGZ)
+	tar -cf $(PACK_TAR) -C $(DISTDIR) .
+	gzip -c $(PACK_TAR) > $(PACK_TGZ)
+
+clean:
+	rm -rf $(OBJDIR) $(DISTDIR) $(PACK_TAR) $(PACK_TGZ)
+
+print-tools:
+	@echo BUILDROOT=$(BUILDROOT)
+	@echo CC=$(CC)
+	@echo CXX=$(CXX)
+	@echo SYSROOT=$(SYSROOT)
+	@echo SDL_CONFIG=$(SDL_CONFIG)
+	@echo PKG_CONFIG=$(PKG_CONFIG)
+	@echo PKG_LIBS=$(PKG_LIBS)
+
+-include $(DEPS)

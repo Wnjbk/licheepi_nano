@@ -1,0 +1,97 @@
+
+name: CI (MiyooCFW)
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+    inputs:
+      submodule:
+        description: The directory of the submodule, if this workflow is being called on a submodule
+        required: true
+        type: string
+
+jobs:
+  build-legacy:
+    name: GMenu2X for MiyooCFW (uClibc)
+    runs-on: ubuntu-22.04
+    container:
+      image: miyoocfw/toolchain-shared-uclibc:master
+    steps:
+    - run: echo "submodule ${{ inputs.submodule }} on ${{ github.event }}"
+    - uses: actions/checkout@v4
+    - if: inputs.submodule
+      run: git submodule update --init --depth 1 -- ${{ inputs.submodule }}
+    - name: generate commit sha 
+      run: |
+        git config --global --add safe.directory /__w/gmenu2x/gmenu2x 
+        cd ${{ inputs.submodule || '.' }} 
+        echo "commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      id: commit
+    - name: build
+      run: |
+        cd ${{ inputs.submodule || '.' }}       
+        make -j$(nproc) -f Makefile.miyoo dist COMMIT_HASH="${{ steps.commit.outputs.commit }}"
+        make -j$(nproc) -f Makefile.miyoo ipk
+    - uses: actions/upload-artifact@v4
+      with:
+        name: GMenu2X (uClibc)
+        path: |
+          ${{ inputs.submodule || '.' }}/dist/miyoo/gmenu2x
+          ${{ inputs.submodule || '.' }}/dist/miyoo/gmenu2x-debug
+        if-no-files-found: error # 'error', 'warn', 'ignore'; defaults to `warn`
+    - uses: actions/upload-artifact@v4
+      with:
+        name: GMenu2X ZIP-Bundle (uClibc)
+        path: |
+          ${{ inputs.submodule || '.' }}/dist/miyoo/
+          !${{ inputs.submodule || '.' }}/dist/miyoo/gmenu2x-debug
+        if-no-files-found: error # 'error', 'warn', 'ignore'; defaults to `warn`
+    - uses: actions/upload-artifact@v4
+      with:
+        name: GMenu2X IPK-Package (uClibc)
+        path: |
+          ${{ inputs.submodule || '.' }}/dist/gmenu2x-miyoo.ipk
+        if-no-files-found: error # 'error', 'warn', 'ignore'; defaults to `warn`
+
+  build-modern:
+    name: GMenu2X for MiyooCFW (musl)
+    runs-on: ubuntu-22.04
+    container:
+      image: miyoocfw/toolchain-shared-musl:master
+    steps:
+    - run: echo "submodule ${{ inputs.submodule }} on ${{ github.event }}"
+    - uses: actions/checkout@v4
+    - if: inputs.submodule
+      run: git submodule update --init --depth 1 -- ${{ inputs.submodule }}
+    - name: generate commit sha 
+      run: |
+        git config --global --add safe.directory /__w/gmenu2x/gmenu2x 
+        cd ${{ inputs.submodule || '.' }} 
+        echo "commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      id: commit
+    - name: build
+      run: |
+        cd ${{ inputs.submodule || '.' }}       
+        make -j$(nproc) -f Makefile.miyoo dist COMMIT_HASH="${{ steps.commit.outputs.commit }}"
+        make -j$(nproc) -f Makefile.miyoo ipk
+    - uses: actions/upload-artifact@v4
+      with:
+        name: GMenu2X (musl)
+        path: |
+          ${{ inputs.submodule || '.' }}/dist/miyoo/gmenu2x
+          ${{ inputs.submodule || '.' }}/dist/miyoo/gmenu2x-debug
+        if-no-files-found: error # 'error', 'warn', 'ignore'; defaults to `warn`
+    - uses: actions/upload-artifact@v4
+      with:
+        name: GMenu2X ZIP-Bundle (musl)
+        path: |
+          ${{ inputs.submodule || '.' }}/dist/miyoo/
+          !${{ inputs.submodule || '.' }}/dist/miyoo/gmenu2x-debug
+        if-no-files-found: error # 'error', 'warn', 'ignore'; defaults to `warn`
+    - uses: actions/upload-artifact@v4
+      with:
+        name: GMenu2X IPK-Package (musl)
+        path: |
+          ${{ inputs.submodule || '.' }}/dist/gmenu2x-miyoo.ipk
+        if-no-files-found: error # 'error', 'warn', 'ignore'; defaults to `warn`

@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR X11)
+/*
+ * Copyright 2018 Icenowy Zheng <icenowy@aosc.io>
+ */
+
+/dts-v1/;
+#include "suniv-f1c100s.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Lichee Pi Nano";
+	compatible = "licheepi,licheepi-nano", "allwinner,suniv-f1c100s";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+reg_vcc3v3: vcc3v3 {
+        compatible = "regulator-fixed";
+        regulator-name = "vcc3v3";
+        regulator-min-microvolt = <3300000>;
+        regulator-max-microvolt = <3300000>;
+    };
+panel: panel {  //面板设备节点
+		compatible = "ampire,am-480272h3tmqw-t01h", "simple-panel";  //这里是套用了现成的驱动，驱动型号需要根据具体的显示屏进行修改
+		#address-cells = <1>;
+		#size-cells = <0>;
+		enable-gpios = <&pio 4 6 GPIO_ACTIVE_HIGH>;  //指定背光脚位，引用了函数，所以需要添加宏定义
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			panel_input: endpoint@0 {  //panel作为驱动tft的设备，数据来源只有一处，就是tcon的输出，也是通过管道获取
+				reg = <0>;
+				remote-endpoint = <&tcon0_out_lcd>;
+			};
+		};
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pe_pins>;
+	status = "okay";
+};
+&mmc0 {
+        vmmc-supply = <&reg_vcc3v3>;
+        bus-width = <4>;
+        broken-cd;
+        status = "okay";
+};
+
+&codec {
+    allwinner,audio-routing =
+    "Headphone", "HP",
+    "Headphone", "HPCOM",
+    "MIC", "Mic";
+    status = "okay";
+};
+&de {  //启动显示处理功能
+	status = "okay";
+};
+&tcon0 {  //启动tcon
+	pinctrl-names = "default";
+	pinctrl-0 = <&lcd_rgb666_pins>;
+	status = "okay";
+};
+
+&tcon0_out {  //接通管道
+	tcon0_out_lcd: endpoint@0 {
+		reg = <0>;
+		remote-endpoint = <&panel_input>;
+	};
+};
+
+&otg_sram {
+        status = "okay";
+};&usb_otg {
+        dr_mode = "peripheral"; /* 三个可选项: otg / host / peripheral  我在这里指定为host模式*/
+        status = "okay";
+};&usbphy {
+        status = "okay";
+};
+
+ #include <dt-bindings/gpio/gpio.h>
+
+  &spi1 {
+      pinctrl-names = "default";
+      pinctrl-0 = <&spi1_pa_pins>;
+      status = "okay";
+
+      /* PE12 作为唯一 SPI CS，低电平有效 */
+      cs-gpios = <&pio 4 12 GPIO_ACTIVE_LOW>;
+
+
+
+      st7789v: display@0 {
+          compatible = "sitronix,st7789v";
+          reg = <0>;
+          status = "okay";   /* 测 ST7789V 时改 okay，同时把 st7735r 改 disabled */
+
+          spi-max-frequency = <50000000>;
+          spi-cpol;
+          spi-cpha;
+
+          buswidth = <8>;
+          width = <240>;
+          height = <320>;
+          rgb;
+          rotate = <90>;
+          fps = <30>;
+
+          dc-gpios = <&pio 0 3 GPIO_ACTIVE_HIGH>;     /* PA3 */
+          reset-gpios = <&pio 0 0 GPIO_ACTIVE_LOW>;   /* PA0 */
+      };
+  };
+

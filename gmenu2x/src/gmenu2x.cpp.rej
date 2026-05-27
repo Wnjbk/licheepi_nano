@@ -1,0 +1,12 @@
+--- src/gmenu2x.cpp
++++ src/gmenu2x.cpp
+@@ -509,7 +509,9 @@ void GMenu2X::main() {
+ 	uint32_t interval = 10;
+ 	uint32_t lastTick = SDL_GetTicks();
+ 	uint32_t frame, startTick, delay;
++#ifndef F1C200S_BUILD
+ 	SDL_TimerID hwCheckTimer = SDL_AddTimer(1000, hwCheck, NULL);
++#endif
+ 
+ 	while (true) {
+ 

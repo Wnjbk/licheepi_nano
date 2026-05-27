@@ -1,0 +1,71 @@
+#!/bin/sh
+
+BIN=/root/uinput_tty_keyd
+ENABLE=/root/enable_uinput.sh
+PIDFILE=/var/run/uinput_tty_keyd.pid
+LOGFILE=/tmp/uinput_tty_keyd.log
+NAME=tty-uinput-gamepad
+CONF=/root/uinput_tty_keyd.conf
+TTY_DEVICE=
+
+[ -f "$CONF" ] && . "$CONF"
+
+start_service() {
+    if [ -x "$ENABLE" ]; then
+        "$ENABLE" >>"$LOGFILE" 2>&1 || true
+    fi
+
+    if [ ! -x "$BIN" ]; then
+        echo "missing binary: $BIN"
+        return 1
+    fi
+
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; then
+        echo "uinput_tty_keyd already running"
+        return 0
+    fi
+
+    if [ -z "$TTY_DEVICE" ]; then
+        echo "uinput ready; bridge not started"
+        echo "set TTY_DEVICE=/dev/ttyS0 in $CONF if you want fixed-tty autostart"
+        return 0
+    fi
+
+    if [ ! -c "$TTY_DEVICE" ]; then
+        echo "configured TTY_DEVICE not found: $TTY_DEVICE"
+        return 1
+    fi
+
+    setsid sh -c "exec $BIN -q -n '$NAME' <'$TTY_DEVICE' >>'$LOGFILE' 2>&1" &
+    echo $! >"$PIDFILE"
+    echo "uinput_tty_keyd started on $TTY_DEVICE"
+}
+
+stop_service() {
+    if [ -f "$PIDFILE" ]; then
+        kill "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null || true
+        rm -f "$PIDFILE"
+    else
+        killall uinput_tty_keyd 2>/dev/null || true
+    fi
+}
+
+case "$1" in
+start)
+    start_service
+    ;;
+stop)
+    stop_service
+    ;;
+restart)
+    stop_service
+    sleep 1
+    start_service
+    ;;
+*)
+    echo "usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit 0

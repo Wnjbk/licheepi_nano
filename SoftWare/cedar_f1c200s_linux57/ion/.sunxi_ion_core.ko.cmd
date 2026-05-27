@@ -1,0 +1,1 @@
+cmd_/home/wnk/SoftWare/cedar_f1c200s_linux57/ion/sunxi_ion_core.ko := arm-linux-gnueabi-ld -r  -EL  --build-id  -T ./scripts/module-common.lds -o /home/wnk/SoftWare/cedar_f1c200s_linux57/ion/sunxi_ion_core.ko /home/wnk/SoftWare/cedar_f1c200s_linux57/ion/sunxi_ion_core.o /home/wnk/SoftWare/cedar_f1c200s_linux57/ion/sunxi_ion_core.mod.o;  true

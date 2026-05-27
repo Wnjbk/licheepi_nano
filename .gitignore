@@ -52,3 +52,8 @@ build/
 vmlinux*
 System.map*
 .tmp_*
+
+# SoftWare
+SoftWare/*.zip
+SoftWare/**/library/
+SoftWare/**/.git/

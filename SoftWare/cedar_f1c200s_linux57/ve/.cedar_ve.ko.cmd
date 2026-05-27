@@ -1,0 +1,1 @@
+cmd_/home/wnk/SoftWare/cedar_f1c200s_linux57/ve/cedar_ve.ko := arm-linux-gnueabi-ld -r  -EL  --build-id  -T ./scripts/module-common.lds -o /home/wnk/SoftWare/cedar_f1c200s_linux57/ve/cedar_ve.ko /home/wnk/SoftWare/cedar_f1c200s_linux57/ve/cedar_ve.o /home/wnk/SoftWare/cedar_f1c200s_linux57/ve/cedar_ve.mod.o;  true

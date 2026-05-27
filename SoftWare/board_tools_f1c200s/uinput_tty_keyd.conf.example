@@ -1,0 +1,5 @@
+# copy to /root/uinput_tty_keyd.conf when needed
+# leave empty if you only want boot-time uinput preparation
+
+# example:
+# TTY_DEVICE=/dev/ttyS0

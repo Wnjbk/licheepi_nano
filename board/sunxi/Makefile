@@ -16,3 +16,6 @@ endif
 obj-$(CONFIG_MACH_SUN4I)	+= dram_sun4i_auto.o
 obj-$(CONFIG_MACH_SUN5I)	+= dram_sun5i_auto.o
 obj-$(CONFIG_MACH_SUN7I)	+= dram_sun5i_auto.o
+ifndef CONFIG_SPL_BUILD
+obj-y += ili9488-spi-init.o
+endif

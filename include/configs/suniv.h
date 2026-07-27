@@ -8,6 +8,7 @@
 #define __CONFIG_H
 
 #define CONFIG_SUNXI_USB_PHYS 1
+#define CONFIG_BOARD_EARLY_INIT_R
 
 /*
  * Include common sunxi configuration where most the settings are

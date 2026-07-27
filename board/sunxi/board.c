@@ -36,6 +36,10 @@
 #include <sy8106a.h>
 #include <asm/setup.h>
 
+#ifndef CONFIG_SPL_BUILD
+extern int ili9488_spi_bootloader_setup(void);
+#endif
+
 #if defined CONFIG_VIDEO_LCD_PANEL_I2C && !(defined CONFIG_SPL_BUILD)
 /* So that we can use pin names in Kconfig and sunxi_name_to_gpio() */
 int soft_i2c_gpio_sda;
@@ -236,6 +240,18 @@ int board_init(void)
 
 	/* Uses dm gpio code so do this here and not in i2c_init_board() */
 	return soft_i2c_board_init();
+}
+
+int board_early_init_r(void)
+{
+#ifndef CONFIG_SPL_BUILD
+	int ret;
+
+	ret = ili9488_spi_bootloader_setup();
+	if (ret)
+		printf("ILI9488 init failed: %d\n", ret);
+#endif
+	return 0;
 }
 
 int dram_init(void)

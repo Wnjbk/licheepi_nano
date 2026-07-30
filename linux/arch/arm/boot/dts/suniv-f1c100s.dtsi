@@ -164,6 +164,14 @@ lcd_rgb666_pins: lcd-rgb666-pins {  //分号前是给节点起的别名，分号
 				function = "lcd";
 			};
 
+			lcd_rgb565_de_pins: lcd-rgb565-de-pins {
+				pins = "PD1", "PD2", "PD3", "PD4", "PD5",
+				       "PD6", "PD7", "PD8", "PD9", "PD10", "PD11",
+				       "PD13", "PD14", "PD15", "PD16", "PD17",
+				       "PD18", "PD19", "PD20", "PD21";
+				function = "lcd";
+			};
+
 			keypad_row_input_pins: keypad-row-input-pins {
 				pins = "PE2", "PE7", "PE8", "PE9";
 				function = "gpio_in";

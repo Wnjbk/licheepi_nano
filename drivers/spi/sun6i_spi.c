@@ -450,7 +450,7 @@ static int sunxi_spi_set_speed(struct udevice *bus, unsigned int hz)
 	else
 		sclk_shift = 0;
 
-	setbits_le32(&ccm->ahb_gate0, 1 << AHB_GATE_OFFSET_SPI0);
+	setbits_le32(&ccm->ahb_gate0, 1 << AHB_GATE_OFFSET_SPI1);
 
 	/* Program the SPI clock control */
 	writel(CCTL_SEL_CDR1 | CDR1(sclk_shift), &spi->CCR);
@@ -474,7 +474,7 @@ static int sunxi_spi_set_speed(struct udevice *bus, unsigned int hz)
 		sclk_shift += 1;
 	};
 
-	setbits_le32(&ccm->ahb_gate0, 1 << AHB_GATE_OFFSET_SPI0);
+	setbits_le32(&ccm->ahb_gate0, 1 << AHB_GATE_OFFSET_SPI1);
 
 	writel(CCTL_SEL_CDR1 | CDR1(sclk_shift), &spi->CCR);
 #endif

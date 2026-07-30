@@ -114,8 +114,16 @@ static void ili9488_init_seq(void)
 	static const u8 c0[] = { 0x14, 0x12 };
 	static const u8 c1[] = { 0x41 };
 	static const u8 c5[] = { 0x00, 0x31, 0x80 };
-	static const u8 madctl[] = { 0x48 };
+	/* Rotation command test: MV + BGR, expected 90-degree scan swap vs 0x48. */
+	static const u8 madctl[] = { 0x28 };
+	static const u8 caset[] = { 0x00, 0x00, 0x01, 0xDF };
+	static const u8 paset[] = { 0x00, 0x00, 0x01, 0x3F };
 	static const u8 pixfmt[] = { 0x66 };
+	/*
+	 * Interface Mode Control (B0h):
+	 * RCM=0 selects RGB DE mode, and EPL=0 keeps DE active-high.
+	 * U-Boot muxes PD19 as LCD0_DE in the sunxi parallel LCD path.
+	 */
 	static const u8 b0[] = { 0x00 };
 	static const u8 b1[] = { 0xA0 };
 	static const u8 b4[] = { 0x02 };
@@ -130,6 +138,8 @@ static void ili9488_init_seq(void)
 	ili9488_write(0xC1, c1, ARRAY_SIZE(c1));
 	ili9488_write(0xC5, c5, ARRAY_SIZE(c5));
 	ili9488_write(0x36, madctl, ARRAY_SIZE(madctl));
+	ili9488_write(0x2A, caset, ARRAY_SIZE(caset));
+	ili9488_write(0x2B, paset, ARRAY_SIZE(paset));
 	ili9488_write(0x3A, pixfmt, ARRAY_SIZE(pixfmt));
 	ili9488_write(0xB0, b0, ARRAY_SIZE(b0));
 	ili9488_write(0xB1, b1, ARRAY_SIZE(b1));

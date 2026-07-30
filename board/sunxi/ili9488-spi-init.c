@@ -119,15 +119,11 @@ static void ili9488_init_seq(void)
 	static const u8 caset[] = { 0x00, 0x00, 0x01, 0xDF };
 	static const u8 paset[] = { 0x00, 0x00, 0x01, 0x3F };
 	static const u8 pixfmt[] = { 0x66 };
-	/*
-	 * Interface Mode Control (B0h):
-	 * RCM=0 selects RGB DE mode, and EPL=0 keeps DE active-high.
-	 * U-Boot muxes PD19 as LCD0_DE in the sunxi parallel LCD path.
-	 */
 	static const u8 b0[] = { 0x00 };
 	static const u8 b1[] = { 0xA0 };
 	static const u8 b4[] = { 0x02 };
-	static const u8 b6[] = { 0x29, 0x02 };
+	/* Display Function Control: RCM=1 selects RGB SYNC/no-DE mode. */
+	static const u8 b6[] = { 0x69, 0x02 };
 	static const u8 e9[] = { 0x00 };
 	static const u8 f7[] = { 0xA9, 0x51, 0x2C, 0x82 };
 	static const u8 zero[] = { 0x00 };

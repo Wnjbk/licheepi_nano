@@ -6,8 +6,6 @@
 #include <dt-bindings/clock/suniv-ccu-f1c100s.h>
 #include <dt-bindings/reset/suniv-ccu-f1c100s.h>
 #include <dt-bindings/dma/sun4i-a10.h>
-
-
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -117,6 +115,13 @@
 			#interrupt-cells = <3>;
 			#gpio-cells = <3>;
 
+			esp8089_cs_pa0_hog: esp8089-cs-pa0-hog {
+				gpio-hog;
+				gpios = <0 0 0>; /* PA0, active high */
+				output-high;
+				line-name = "esp8089-cs-pa0";
+			};
+
 			uart0_pe_pins: uart0-pe-pins {
 				pins = "PE0", "PE1";
 				function = "uart0";
@@ -125,17 +130,50 @@
                 		pins = "PF0", "PF1", "PF2", "PF3", "PF4", "PF5";
                 		function = "mmc0";
             		};
+i2s_pe_pins: i2s-pe-pins {
+	pins = "PE3", "PE4", "PE6";
+	function = "i2s";
+	};
 spi1_pa_pins: spi1-pa-pins {
-pins = "PA1", "PA2";
-        function = "spi1";
-            };
+	pins = "PA1", "PA2", "PA3";
+	function = "spi1";
+};
 lcd_rgb666_pins: lcd-rgb666-pins {  //分号前是给节点起的别名，分号后是节点的名称。首先是申请RGB驱动的引脚
 				pins = "PD0", "PD1", "PD2", "PD3", "PD4",
 				       "PD5", "PD6", "PD7", "PD8", "PD9",
 				       "PD10", "PD11", "PD12", "PD13", "PD14",
-				       "PD15", "PD16", "PD17", "PD18", "PD19",
+				       "PD15", "PD16", "PD17", "PD18",
 				       "PD20", "PD21";
 				function = "lcd";
+			};
+
+			lcd_rgb666_keypad_pins: lcd-rgb666-keypad-pins {
+				pins = "PD1", "PD2", "PD3", "PD4",
+				       "PD5", "PD6", "PD7", "PD8", "PD9",
+				       "PD10", "PD11", "PD13", "PD14",
+				       "PD15", "PD16", "PD17", "PD18",
+				       "PD20", "PD21";
+				function = "lcd";
+			};
+
+			lcd_rgb565_no_de_pins: lcd-rgb565-no-de-pins {
+				pins = "PD1", "PD2", "PD3", "PD4", "PD5",
+				       "PD6", "PD7", "PD8", "PD9", "PD10", "PD11",
+				       "PD13", "PD14", "PD15", "PD16", "PD17",
+				       "PD18", "PD20", "PD21";
+				function = "lcd";
+			};
+
+			keypad_row_input_pins: keypad-row-input-pins {
+				pins = "PE2", "PE7", "PE8", "PE9";
+				function = "gpio_in";
+				bias-pull-down;
+			};
+
+			keypad_col_drive_pins: keypad-col-drive-pins {
+				pins = "PD0", "PD12", "PE10", "PE11";
+				function = "gpio_out";
+				bias-disable;
 			};
 
 		};
@@ -149,7 +187,7 @@ lcd_rgb666_pins: lcd-rgb666-pins {  //分号前是给节点起的别名，分号
 
 		wdt: watchdog@1c20ca0 {
 			compatible = "allwinner,suniv-f1c100s-wdt",
-				     "allwinner,sun4i-a10-wdt";
+				     "allwinner,sun6i-a31-wdt";
 			reg = <0x01c20ca0 0x20>;
 		};
 
@@ -193,6 +231,9 @@ spi1: spi@1c06000 {
     clocks = <&ccu CLK_BUS_SPI1>, <&ccu CLK_BUS_SPI1>;
     clock-names = "ahb", "mod";
     resets = <&ccu RST_BUS_SPI1>;
+    dmas = <&dma SUN4I_DMA_NORMAL 0x05>,
+           <&dma SUN4I_DMA_NORMAL 0x05>;
+    dma-names = "rx", "tx";
     status = "disabled";
     #address-cells = <1>;
     #size-cells = <0>;
@@ -205,6 +246,20 @@ dma: dma-controller@1c02000 {
     clocks = <&ccu CLK_BUS_DMA>;
     resets = <&ccu RST_BUS_DMA>;
     #dma-cells = <2>;
+};
+
+i2s: i2s@1c22000 {
+    #sound-dai-cells = <0>;
+    compatible = "allwinner,suniv-f1c100s-i2s";
+    reg = <0x01c22000 0x400>;
+    interrupts = <35>;
+    clocks = <&ccu CLK_BUS_I2S0>, <&ccu CLK_I2S>;
+    clock-names = "apb", "mod";
+    resets = <&ccu RST_BUS_I2S0>;
+    dmas = <&dma SUN4I_DMA_NORMAL 0x0e>,
+           <&dma SUN4I_DMA_NORMAL 0x0e>;
+    dma-names = "rx", "tx";
+    status = "disabled";
 };
 
 codec: codec@1c23c00 {
@@ -246,8 +301,6 @@ codec: codec@1c23c00 {
 
       status = "okay";
   };
-
-
 tcon0: lcd-controller@1c0c000 {  //添加显示驱动的节点，即RGB驱动，@后面是设备的物理地址。
 			compatible = "allwinner,sun4i-a10-tcon";  //linux5.7.1内，已经没有f1c200s的相关支持，但是实测使用a10型号的驱动依然可用
 			reg = <0x01c0c000 0x1000>;  //寄存器地址
@@ -376,7 +429,7 @@ mmc0: mmc@1c0f000 {
             #size-cells = <0>;
         };
 usb_otg: usb@1c13000 {
-    compatible = "allwinner,suniv-musb";
+    compatible = "allwinner,sun4i-a10-musb";
     reg = <0x01c13000 0x0400>;
     clocks = <&ccu CLK_BUS_OTG>;
     resets = <&ccu RST_BUS_OTG>;
@@ -389,7 +442,7 @@ usb_otg: usb@1c13000 {
     status = "disabled";
 };
 usbphy: phy@1c13400 {
-    compatible = "allwinner,suniv-usb-phy";
+    compatible = "allwinner,sun4i-a10-usb-phy";
     reg = <0x01c13400 0x10>;
     reg-names = "phy_ctrl";
     clocks = <&ccu CLK_USB_PHY0>;

@@ -275,7 +275,7 @@
 
 &tcon0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&lcd_rgb565_de_pins>;
+	pinctrl-0 = <&lcd_rgb565_no_de_pins>;
 	srgn,swap-b-r;
 	status = "okay";
 };

@@ -197,6 +197,77 @@ Board test result - 2026-08-03:
     or Cedar decode failure.
 ```
 
+## AIC Miracast FIFO Live Display Test - 2026-08-03
+```text
+Purpose:
+- Experimental live display path:
+    AIC Miracast RTP/RTSP -> miracast_sink_dump.fifo_guard -> FIFO ->
+    cedar_drm_player.yuvdrop -> DRM/LCD.
+- This does not replace the stable null-output Miracast chain.
+
+Board files:
+- /root/cedar_drm_player.yuvdrop
+  md5 7ecde376621f6ea92f4e4ec6eaf71ff2
+- /root/aic_miracast/start_miracast_live_display_yuvdrop.sh
+  md5 1a3f90a67f3b278bccead48bd1e0031d
+- /root/aic_miracast/start_miracast_go_v25.sh
+  md5 54e1c75c92cf47d0f8cba277f683607e
+- /root/aic_miracast/start_aic_miracast_cdump_board.sh
+  md5 61bb3a2086cde90b45d947c46b74c383
+
+Changes:
+- start_aic_miracast_cdump_board.sh now supports:
+    CAPTURE_MODE=fifo
+    LIVE_FIFO=/tmp/aic_h264_live.fifo
+  In this mode the watcher passes the FIFO path to cdump instead of writing
+  /dev/null or /root/roms/video/*.h264.
+- start_miracast_go_v25.sh now forwards LIVE_FIFO to the lower watcher.
+- start_miracast_live_display_yuvdrop.sh starts the FIFO player first, then
+  starts the v25 GO path with:
+    SINK_BIN=/root/aic_miracast/miracast_sink_dump.fifo_guard
+    CAPTURE_MODE=fifo
+    LIVE_FIFO=/tmp/aic_h264_live.fifo
+    CEDAR_VIEW_STRETCH=1
+
+Startup:
+1. Register AIC wlan1 after reboot:
+   /root/aic_miracast/register_aic_wlan1_v25.sh start
+2. Start live display Miracast:
+   /root/aic_miracast/start_miracast_live_display_yuvdrop.sh start
+3. Stop live display:
+   /root/aic_miracast/start_miracast_live_display_yuvdrop.sh stop
+
+Current test state:
+- Board registered AIC from cold a69c:8d80 to a69c:8d83 successfully.
+- Live display GO started on wlan1:
+    SSID DIRECT-tl
+    freq 5805
+    P2P GO
+    board IP 192.168.49.1
+    passphrase 12345678
+- FIFO player process was running:
+    /root/cedar_drm_player.yuvdrop --raw-h264 720 480 30 /tmp/aic_h264_live.fifo
+- No phone connected during the first three-minute poll:
+    wlan1 RX packets stayed 0
+    watcher saw WPS-TIMEOUT and rearmed WPS once
+
+Cedar yuvdrop source:
+- Host repo snapshot:
+  /home/wnk/LicheePi_Nano/board_tools_f1c200s/cedar_drm_player_yuvdrop_src/
+- yuvdrop adds a nonblocking DRM display enqueue path. If the display queue is
+  full, the current decoded picture is returned to Cedar and the frame is
+  dropped instead of blocking the decoder/display chain.
+- The display queue capacity in drm_warpper is reduced from 16 to 4 for lower
+  latency in live streaming tests.
+
+Important:
+- Do not replace /root/cedar_drm_player yet.
+- Do not replace the stable null chain:
+    /root/aic_miracast/register_aic_wlan1_v25.sh start
+    /root/aic_miracast/start_miracast_go_v25_lowest_null.sh
+- Live display must avoid SD writes. FIFO output is the intended test path.
+```
+
 ## AIC Miracast Recording Disconnect Fix - 2026-08-02
 ```text
 Symptom:

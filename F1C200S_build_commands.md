@@ -142,9 +142,9 @@ Purpose:
 
 Scripts:
 - /root/aic_miracast/play_h264_fifo_to_lcd.sh
-  md5 43ed6e0125e1f54b55e6b9c45366e9f6
+  md5 1bb6aab0148a255a76f537ba9c8bc70e
 - /root/aic_miracast/inject_h264_to_fifo.sh
-  md5 33c1e989dc6349092b7a7f13beae61f4
+  md5 761b18d1a2080d761ee473a8b08049da
 
 Host overlay:
 - /home/wnk/LicheePi_Nano/board_tools_f1c200s/runtime_bundle/rootfs_overlay/root/aic_miracast/play_h264_fifo_to_lcd.sh
@@ -163,6 +163,9 @@ Defaults:
 - FPS=30
 - PLAYER=/root/cedar_drm_player
 - LOWMEM=1, STOP_GMENU=1
+- LOG=/dev/null by default to avoid continuous SD/rootfs log writes during
+  display tests. Set LOG=/root/aic_runtime/logs/h264_fifo_player.log manually
+  only for short debug runs.
 
 Notes:
 - Raw .h264/.264 input is copied directly to the FIFO.
@@ -170,6 +173,28 @@ Notes:
 - This test intentionally uses FIFO, but it does not write SD output files.
 - For live Miracast, use the new fifo_guard cdump variant so FIFO/full-player
   stalls do not block RTP receive indefinitely.
+
+Board test result - 2026-08-03:
+- Board IP: 10.0.0.107, kernel 5.7.1 #146.
+- Deployed scripts and fifo_guard binary to /root/aic_miracast.
+- Fixed accidental /root ownership from dbus:dbus back to root:root.
+- First test with 640x360 failed because the sample decoded as aligned
+  736x480 while the player expected 640x384; inject exited rc=141 after the
+  player closed the FIFO.
+- Retest with:
+    WIDTH=720 HEIGHT=480 FPS=30 /root/aic_miracast/play_h264_fifo_to_lcd.sh
+    /root/aic_miracast/inject_h264_to_fifo.sh \
+      /root/roms/20260725_board_aic_miracast_success/samples/miracast_latest.h264
+  succeeded.
+- Evidence:
+    inject exit rc=0
+    picture frame=5100 size=736x480 expect=736x480
+    DRM commit ok count=5100
+    raw h264 input eos
+- Interpretation:
+    H264 elementary stream -> FIFO -> cedar_drm_player -> DRM display works.
+    The earlier failure was resolution/stride expectation mismatch, not a FIFO
+    or Cedar decode failure.
 ```
 
 ## AIC Miracast Recording Disconnect Fix - 2026-08-02

@@ -5,14 +5,16 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/root:/root/aic_miracast
 
 FIFO=${FIFO:-/tmp/aic_h264_live.fifo}
 LOG_DIR=${LOG_DIR:-/root/aic_runtime/logs}
-LOG=${LOG:-$LOG_DIR/h264_fifo_inject.log}
+LOG=${LOG:-/dev/null}
 LOOP=${LOOP:-0}
 
 mkdir -p "$LOG_DIR"
 
 log()
 {
-    echo "[h264-fifo-inject] $(date '+%H:%M:%S' 2>/dev/null) $*" | tee -a "$LOG"
+    line="[h264-fifo-inject] $(date '+%H:%M:%S' 2>/dev/null) $*"
+    echo "$line"
+    [ "$LOG" = "/dev/null" ] || echo "$line" >>"$LOG"
 }
 
 usage()

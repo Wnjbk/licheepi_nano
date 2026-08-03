@@ -10,7 +10,7 @@ FPS=${FPS:-30}
 PLAYER=${PLAYER:-/root/cedar_drm_player}
 LOG_DIR=${LOG_DIR:-/root/aic_runtime/logs}
 RUN_DIR=${RUN_DIR:-/root/aic_runtime/run}
-LOG=${LOG:-$LOG_DIR/h264_fifo_player.log}
+LOG=${LOG:-/dev/null}
 STOP_GMENU=${STOP_GMENU:-1}
 LOWMEM=${LOWMEM:-1}
 
@@ -18,7 +18,9 @@ mkdir -p "$LOG_DIR" "$RUN_DIR"
 
 log()
 {
-    echo "[h264-fifo-player] $(date '+%H:%M:%S' 2>/dev/null) $*" | tee -a "$LOG"
+    line="[h264-fifo-player] $(date '+%H:%M:%S' 2>/dev/null) $*"
+    echo "$line"
+    [ "$LOG" = "/dev/null" ] || echo "$line" >>"$LOG"
 }
 
 cleanup()

@@ -95,6 +95,44 @@ Dedicated docs:
 - AIC_MIRACAST_V25_LOWEST_STABLE_20260803.md
 ```
 
+## AIC Miracast FIFO Output Guard - 2026-08-03
+```text
+Purpose:
+- Prepare a new cdump variant for live Cedar/FIFO display tests without
+  replacing the current stable lowest/null chain.
+- The goal is to prevent the H264 output side from blocking RTP receive when
+  the downstream player stalls.
+
+Backup:
+- Original source was backed up on the Ubuntu host:
+  /home/wnk/F1C200S_host_archive/miracast_fifo_guard/20260803_014946/
+  md5 ca49b021e1fe3c8690f48532f61e813b
+
+New source:
+- /home/wnk/LicheePi_Nano/third_party/lazycast_host_20260721/miracast_sink_dump_fifo_guard.c
+- md5 557da1d9420262e7a4782e4fddeb1fbc
+
+New binary:
+- /home/wnk/LicheePi_Nano/third_party/lazycast_host_20260721/miracast_sink_dump.fifo_guard.brarm
+- md5 afb23f480a63d67632007e6d14134b71
+
+Implementation:
+- Regular file output still uses normal blocking writes.
+- FIFO/stdout pipe output is detected with fstat/stat.
+- FIFO/stdout pipe output is set to nonblocking mode.
+- It tries to enlarge the pipe buffer to 256KiB with F_SETPIPE_SZ.
+- If output write returns EAGAIN/EWOULDBLOCK, the remaining current H264 payload
+  chunk is dropped and dropped_bytes is counted.
+- This is first-level protection only. It may drop partial H264 payloads, so
+  picture corruption is possible, but it should prevent Cedar/player stalls from
+  backpressuring RTP receive.
+
+Next safer version:
+- Add Annex-B NAL boundary parsing.
+- Drop complete NALs only.
+- After a drop, hold output until the next IDR and replay cached SPS/PPS.
+```
+
 ## AIC Miracast Recording Disconnect Fix - 2026-08-02
 ```text
 Symptom:

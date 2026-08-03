@@ -133,6 +133,45 @@ Next safer version:
 - After a drop, hold output until the next IDR and replay cached SPS/PPS.
 ```
 
+## H264 FIFO Cedar Display Test Scripts - 2026-08-03
+```text
+Purpose:
+- Test H264 stream display through Cedar without writing SD-card video files.
+- This is a local file-injection display test first. It does not start AIC,
+  Wi-Fi Direct, or Miracast.
+
+Scripts:
+- /root/aic_miracast/play_h264_fifo_to_lcd.sh
+  md5 43ed6e0125e1f54b55e6b9c45366e9f6
+- /root/aic_miracast/inject_h264_to_fifo.sh
+  md5 33c1e989dc6349092b7a7f13beae61f4
+
+Host overlay:
+- /home/wnk/LicheePi_Nano/board_tools_f1c200s/runtime_bundle/rootfs_overlay/root/aic_miracast/play_h264_fifo_to_lcd.sh
+- /home/wnk/LicheePi_Nano/board_tools_f1c200s/runtime_bundle/rootfs_overlay/root/aic_miracast/inject_h264_to_fifo.sh
+
+Usage on board:
+1. Start FIFO player:
+   /root/aic_miracast/play_h264_fifo_to_lcd.sh
+2. In another shell, inject a raw H264 elementary stream:
+   /root/aic_miracast/inject_h264_to_fifo.sh /root/roms/video/test.h264
+
+Defaults:
+- FIFO=/tmp/aic_h264_live.fifo
+- WIDTH=640
+- HEIGHT=360
+- FPS=30
+- PLAYER=/root/cedar_drm_player
+- LOWMEM=1, STOP_GMENU=1
+
+Notes:
+- Raw .h264/.264 input is copied directly to the FIFO.
+- mp4/mkv extraction is attempted only if ffmpeg exists on the board.
+- This test intentionally uses FIFO, but it does not write SD output files.
+- For live Miracast, use the new fifo_guard cdump variant so FIFO/full-player
+  stalls do not block RTP receive indefinitely.
+```
+
 ## AIC Miracast Recording Disconnect Fix - 2026-08-02
 ```text
 Symptom:

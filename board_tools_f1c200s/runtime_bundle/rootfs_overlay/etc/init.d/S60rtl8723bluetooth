@@ -1,0 +1,16 @@
+#!/bin/sh
+
+case "${1:-start}" in
+    start)
+        /root/start_bluetooth.sh >/tmp/rtl8723bluetooth.start.log 2>&1 &
+        ;;
+    stop)
+        killall bluetoothd 2>/dev/null || true
+        /sbin/rmmod btusb 2>/dev/null || true
+        /sbin/rmmod btintel 2>/dev/null || true
+        /sbin/rmmod btbcm 2>/dev/null || true
+        /sbin/rmmod btrtl 2>/dev/null || true
+        ;;
+esac
+
+exit 0

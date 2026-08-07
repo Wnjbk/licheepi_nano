@@ -1,0 +1,39 @@
+From: Codex <noreply@local>
+Subject: [PATCH] musb: keep RTL8723BU HCI bulk off endpoint 5
+
+The F1C100S MUSB controller has five non-control hardware endpoints. With
+RTL8723BU Wi-Fi active, the generic allocator places Bluetooth HCI bulk IN
+(USB endpoint 2) on hardware endpoint 5. HCI commands then receive no events.
+Conversely, when Bluetooth reserves the lower endpoints first, Wi-Fi receives
+no packets after being placed on endpoint 5.
+
+Use the controller's multiplexed bulk-IN queue for the Bluetooth HCI bulk
+endpoint, preserving the working endpoint allocation for Wi-Fi and keeping
+HCI bulk traffic off endpoint 5.
+
+--- a/drivers/usb/musb/musb_host.c
++++ b/drivers/usb/musb/musb_host.c
+@@ -2065,6 +2065,20 @@ static int musb_schedule(
+ 		hw_ep = musb->control_ep;
+ 		goto success;
+ 	}
++
++	/*
++	 * RTL8723BU exposes Bluetooth HCI bulk IN as USB endpoint 2. When
++	 * Wi-Fi owns the first free RX endpoint, the generic allocator puts
++	 * this transfer on F1C100S MUSB endpoint 5, where HCI events stall.
++	 * Use the controller's multiplexed bulk RX queue instead and leave
++	 * endpoint 5 unused by the HCI path.
++	 */
++	if (is_in && musb_qh_is_rtl8723bu(qh) && qh->epnum == 2 &&
++	    qh->type == USB_ENDPOINT_XFER_BULK && musb->bulk_ep) {
++		hw_ep = musb->bulk_ep;
++		head = &musb->in_bulk;
++		if (qh->dev)
++			qh->intv_reg =
++				(USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
++		goto success;
++	}
+ 
+ 	if (is_in && musb_qh_is_aic(qh) && qh->type == USB_ENDPOINT_XFER_BULK &&
+ 	    musb->bulk_ep) {

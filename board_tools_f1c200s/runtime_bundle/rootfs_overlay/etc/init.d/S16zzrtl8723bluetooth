@@ -21,6 +21,11 @@ start)
     while [ "$i" -lt 20 ]; do
         if dmesg | grep -q 'Bluetooth: hci0: RTL: fw version'; then
             log "firmware ready after ${i}s"
+            if hciconfig hci0 up >/root/rtl8723bluetooth.early.log 2>&1; then
+                log "hci0 up before Wi-Fi"
+            else
+                log "hci0 up failed before Wi-Fi"
+            fi
             exit 0
         fi
         if dmesg | grep -q 'HCI_OP_READ_LOCAL_VERSION failed'; then

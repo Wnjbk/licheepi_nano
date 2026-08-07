@@ -3,9 +3,13 @@
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
 export DBUS_SYSTEM_BUS_ADDRESS=${DBUS_SYSTEM_BUS_ADDRESS:-unix:path=/var/run/dbus/system_bus_socket}
-MODULE_DIR=${MODULE_DIR:-/root/roms/system_modules/rtl8723bluetooth}
+MODULE_DIR=${MODULE_DIR:-/root/system_modules/rtl8723bluetooth}
 
 load_bt_modules() {
+    if [ ! -r "$MODULE_DIR/btrtl.ko" ] && [ -r /root/roms/system_modules/rtl8723bluetooth/btrtl.ko ]; then
+        MODULE_DIR=/root/roms/system_modules/rtl8723bluetooth
+    fi
+
     for mod in btrtl btbcm btintel btusb; do
         if grep -q "^${mod} " /proc/modules 2>/dev/null; then
             continue

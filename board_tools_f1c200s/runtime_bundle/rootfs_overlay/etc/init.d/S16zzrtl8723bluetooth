@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Bind the Bluetooth interfaces after the USB host script, but before S17
+# claims the RTL8723BU Wi-Fi interface. Do not wait for firmware here.
+MODULE_DIR=/root/system_modules/rtl8723bluetooth
+
+case "${1:-start}" in
+    start)
+        for mod in btrtl btbcm btintel btusb; do
+            grep -q "^${mod} " /proc/modules 2>/dev/null && continue
+            [ -r "$MODULE_DIR/${mod}.ko" ] || exit 0
+            /sbin/insmod "$MODULE_DIR/${mod}.ko" || exit 0
+        done
+        ;;
+esac
+
+exit 0

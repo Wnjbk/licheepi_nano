@@ -1,0 +1,24 @@
+From: Codex <noreply@local>
+Subject: [PATCH] musb: share RTL8723BU HCI interrupt RX endpoint
+
+The first HCI bulk sharing test removed hardware endpoint 5 from the HCI
+path, but the Bluetooth interrupt endpoint was still moved from hardware
+endpoint 3 to 4 after Wi-Fi initialization and HCI events still stalled.
+Route both HCI IN endpoints through the MUSB multiplexed bulk-IN queue.
+
+--- a/drivers/usb/musb/musb_host.c
++++ b/drivers/usb/musb/musb_host.c
+@@ -2065,6 +2065,19 @@ static int musb_schedule(
+ 		hw_ep = musb->control_ep;
+ 		goto success;
+ 	}
++
++	if (is_in && musb_qh_is_rtl8723bu(qh) &&
++	    (qh->epnum == 1 || qh->epnum == 2) && musb->bulk_ep) {
++		hw_ep = musb->bulk_ep;
++		head = &musb->in_bulk;
++		if (qh->type == USB_ENDPOINT_XFER_BULK && qh->dev)
++			qh->intv_reg =
++				(USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
++		goto success;
++	}

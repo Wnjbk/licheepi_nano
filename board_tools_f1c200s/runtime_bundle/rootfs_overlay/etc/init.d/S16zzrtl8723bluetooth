@@ -12,6 +12,8 @@ case "${1:-start}" in
             [ -r "$MODULE_DIR/${mod}.ko" ] || exit 0
             /sbin/insmod "$MODULE_DIR/${mod}.ko" || exit 0
         done
+        sleep 2
+        hciconfig hci0 up >/tmp/rtl8723bluetooth.early.log 2>&1 || true
         ;;
 esac
 

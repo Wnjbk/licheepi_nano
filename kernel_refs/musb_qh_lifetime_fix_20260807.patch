@@ -1,0 +1,25 @@
+From upstream Linux MUSB host controller lifetime fix.
+
+The USB completion callback runs outside musb->lock and may free or replace
+the queue head. Reload the queue head before accessing it after giveback.
+
+diff --git a/linux/drivers/usb/musb/musb_host.c b/linux/drivers/usb/musb/musb_host.c
+--- a/linux/drivers/usb/musb/musb_host.c
++++ b/linux/drivers/usb/musb/musb_host.c
+@@ -330,7 +330,16 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
+ 	}
+ 
+ 	qh->is_ready = 0;
+ 	musb_giveback(musb, urb, status);
++
++	/*
++	 * musb_giveback() drops musb->lock. The completion callback can remove
++	 * this QH, so reload it before accessing its fields.
++	 */
++	qh = musb_ep_get_qh(hw_ep, is_in);
++	if (!qh)
++		return;
++
+ 	qh->is_ready = ready;
+ 
+ 	/* reclaim resources (and bandwidth) ASAP; deschedule it, and

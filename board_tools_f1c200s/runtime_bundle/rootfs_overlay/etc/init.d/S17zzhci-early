@@ -1,0 +1,19 @@
+#!/bin/sh
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+case "${1:-start}" in
+start)
+    i=0
+    while [ "$i" -lt 10 ]; do
+        if hciconfig hci0 up 2>/dev/null; then
+            echo "[rtl8723bt] hci0 up before wifi association"
+            exit 0
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
+    echo "[rtl8723bt] hci0 early up failed"
+    ;;
+esac
+
+exit 0

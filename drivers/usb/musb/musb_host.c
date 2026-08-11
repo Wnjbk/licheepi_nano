@@ -2162,12 +2162,6 @@ success:
 	}
 	qh->hw_ep = hw_ep;
 	qh->hep->hcpriv = qh;
-	if (qh->dev && qh->epnum &&
-	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda)
-		dev_info(musb->controller,
-			 "rtl8723bu map ep=%u dir=%s type=%u hw=%u mux=%u\\n",
-			 qh->epnum, is_in ? "in" : "out", qh->type,
-			 hw_ep->epnum, qh->mux);
 	if (idle)
 		musb_start_urb(musb, is_in, qh);
 	return 0;

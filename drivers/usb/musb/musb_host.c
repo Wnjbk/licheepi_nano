@@ -2065,6 +2065,7 @@ static int musb_schedule(
 		hw_ep = musb->endpoints + 3;
 		if (!musb_ep_get_qh(hw_ep, 1)) {
 			idle = 1;
+			hw_ep->rx_reinit = 1;
 			qh->mux = 0;
 			goto success;
 		}

@@ -509,6 +509,11 @@ musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
 	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720)
 		ioread8_rep(hw_ep->fifo, buf, length);
+	else if (urb->dev && epnum == 3 && usb_pipebulk(pipe) &&
+		 usb_pipeendpoint(pipe) == 2 &&
+		 le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+		 le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720)
+		ioread8_rep(hw_ep->fifo, buf, length);
 	else
 		musb_read_fifo(hw_ep, length, buf);
 

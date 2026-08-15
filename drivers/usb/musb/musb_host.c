@@ -504,7 +504,13 @@ musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 			urb->status = -EREMOTEIO;
 	}
 
-	musb_read_fifo(hw_ep, length, buf);
+	/* RTL8723BU HCI events are short PIO reads on the Sunxi MUSB EP1 FIFO. */
+	if (urb->dev && epnum == 1 && usb_pipeint(pipe) &&
+	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720)
+		ioread8_rep(hw_ep->fifo, buf, length);
+	else
+		musb_read_fifo(hw_ep, length, buf);
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 	csr |= MUSB_RXCSR_H_WZC_BITS;

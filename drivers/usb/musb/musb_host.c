@@ -1833,6 +1833,22 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	}
 
 	trace_musb_urb_rx(musb, urb);
+
+	/* Logging-only: bounded EP1 RTL HCI RX dispatch correlation. */
+	{
+		static unsigned int rtl8723bu_ep1_rx_trace_budget = 16;
+
+		if (time_after(jiffies, 20UL * HZ) && epnum == 1 &&
+		    usb_pipeint(urb->pipe) &&
+		    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+		    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
+		    rtl8723bu_ep1_rx_trace_budget--)
+			dev_err(musb->controller,
+				"rtl8723bu ep1 host_rx csr=%04x count=%u urb_status=%d actual=%u\n",
+				rx_csr, musb_readw(epio, MUSB_RXCOUNT),
+				urb->status, urb->actual_length);
+	}
+
 	/* check for errors, concurrent stall & unlink is not really
 	 * handled yet! */
 	if (rx_csr & MUSB_RXCSR_H_RXSTALL) {
@@ -2037,13 +2053,6 @@ finish:
 	urb->actual_length += xfer_len;
 	qh->offset += xfer_len;
 	if (done) {
-		/* Reprogram the dedicated RTL8723BU ACL-IN FIFO for the next URB. */
-		if (epnum == 3 && urb->dev && usb_pipebulk(urb->pipe) &&
-		    usb_pipeendpoint(urb->pipe) == 2 &&
-		    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-		    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720)
-			hw_ep->rx_reinit = 1;
-
 		if (qh->use_sg) {
 			qh->use_sg = false;
 			urb->transfer_buffer = NULL;

@@ -1808,7 +1808,7 @@ static bool musb_rtl8723bu_ep1_demux(struct musb *musb,
 		struct musb_qh *hci_qh, struct urb *hci_urb, u16 rx_csr)
 {
 	u16 rx_count = musb_readw(epio, MUSB_RXCOUNT);
-	struct musb_hw_ep *acl_hw_ep = musb->endpoints + 4;
+	struct musb_hw_ep *acl_hw_ep = musb->endpoints + 3;
 	struct musb_qh *acl_qh = acl_hw_ep->in_qh;
 	struct urb *acl_urb = NULL;
 	static u8 rtl_bounce[1024];
@@ -2239,11 +2239,11 @@ static int musb_schedule(
 		goto success;
 	}
 
-	/* Keep the RTL8723BU Bluetooth ACL IN queue on EP4 for the demux. */
+	/* Keep the RTL8723BU Bluetooth ACL IN queue on EP3 for the demux. */
 	if (is_in && qh->dev &&
 	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
 	    qh->epnum == 2 && qh->type == USB_ENDPOINT_XFER_BULK) {
-		hw_ep = musb->endpoints + 4;
+		hw_ep = musb->endpoints + 3;
 		if (!musb_ep_get_qh(hw_ep, 1)) {
 			idle = 1;
 			hw_ep->rx_reinit = 1;

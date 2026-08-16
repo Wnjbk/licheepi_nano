@@ -2037,6 +2037,13 @@ finish:
 	urb->actual_length += xfer_len;
 	qh->offset += xfer_len;
 	if (done) {
+		/* Reprogram the dedicated RTL8723BU ACL-IN FIFO for the next URB. */
+		if (epnum == 3 && urb->dev && usb_pipebulk(urb->pipe) &&
+		    usb_pipeendpoint(urb->pipe) == 2 &&
+		    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+		    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720)
+			hw_ep->rx_reinit = 1;
+
 		if (qh->use_sg) {
 			qh->use_sg = false;
 			urb->transfer_buffer = NULL;

@@ -2118,7 +2118,7 @@ static int musb_schedule(
 	if (is_in && qh->dev &&
 	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
 	    qh->epnum == 2 && qh->type == USB_ENDPOINT_XFER_BULK) {
-		hw_ep = musb->endpoints + 3;
+		hw_ep = musb->endpoints + 4;
 		if (!musb_ep_get_qh(hw_ep, 1)) {
 			idle = 1;
 			hw_ep->rx_reinit = 1;

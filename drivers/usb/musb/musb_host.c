@@ -10,6 +10,7 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -518,7 +519,8 @@ musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 	else
 		musb_read_fifo(hw_ep, length, buf);
 
-	if (urb->dev && epnum == 1 && usb_pipeint(pipe) && length &&
+	if (time_after(jiffies, 20 * HZ) && urb->dev && epnum == 1 &&
+	    usb_pipeint(pipe) && length &&
 	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
 	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
 	    buf[0] == 0 && rtl8723bu_ep1_bad_packets++ < 16)

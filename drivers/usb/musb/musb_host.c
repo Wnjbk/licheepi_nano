@@ -2075,6 +2075,16 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		bool is_acl = (pktsz >= 4 &&
 			       (p[2] | (p[3] << 8)) == pktsz - 4);
 
+		/* Drop invalid all-zero HCI events (event code 0 is reserved). */
+		if (p[0] == 0) {
+			dev_err_ratelimited(musb->controller,
+				"rtl8723bu ep1 discard zero hci len=%u\n",
+				pktsz);
+			urb->actual_length = 0;
+			qh->offset = 0;
+			return;
+		}
+
 		if (!is_hci && is_acl) {
 			struct musb_hw_ep *acl_hw_ep = musb->endpoints + 3;
 			struct musb_qh *acl_qh = acl_hw_ep->in_qh;

@@ -1732,8 +1732,8 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	u8		devctl;
 	static unsigned int late_irq_trace_budget = 16;
 
-	/* Logging-only: RTL HCI/ACL RX (EP1/EP3) only, rate-limited. */
-	if (musb->int_rx & (BIT(1) | BIT(3)))
+	/* Logging-only: RTL HCI/ACL RX (EP1/3/5) only, rate-limited. */
+	if (musb->int_rx & (BIT(1) | BIT(3) | BIT(5)))
 		dev_err_ratelimited(musb->controller,
 			"musb rx irq usb=%02x tx=%04x rx=%04x\n",
 			musb->int_usb, musb->int_tx, musb->int_rx);
@@ -1779,7 +1779,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	}
 
 	/* Logging-only: RTL HCI/ACL RX late bitmap, rate-limited. */
-	if ((musb->int_rx & (BIT(1) | BIT(3))) && late_irq_trace_budget--)
+	if ((musb->int_rx & (BIT(1) | BIT(3) | BIT(5))) && late_irq_trace_budget--)
 		dev_err_ratelimited(musb->controller,
 			"musb late irq tx=%04x rx=%04x\n",
 			musb->int_tx, musb->int_rx);

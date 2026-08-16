@@ -1814,8 +1814,9 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	musb_ep_select(mbase, epnum);
 
-	/* Logging-only: RTL HCI/ACL RX dispatch (EP1/EP3) only. */
-	if ((epnum == 1 || epnum == 3) && late_musb_rx_entry_budget--)
+	/* Logging-only: RTL HCI/ACL RX dispatch (EP1/3/5) only. */
+	if ((epnum == 1 || epnum == 3 || epnum == 5) &&
+	    late_musb_rx_entry_budget--)
 		dev_err_ratelimited(musb->controller,
 			"musb rx entry ep=%u csr=%04x count=%u\n",
 			epnum, musb_readw(epio, MUSB_RXCSR),
@@ -1842,17 +1843,17 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	trace_musb_urb_rx(musb, urb);
 
-	/* Logging-only: bounded EP1 RTL HCI RX dispatch correlation. */
+	/* Logging-only: bounded RTL HCI RX dispatch correlation (EP1/EP5). */
 	{
 		static unsigned int rtl8723bu_ep1_rx_trace_budget = 16;
 
-		if (epnum == 1 && usb_pipeint(urb->pipe) &&
+		if ((epnum == 1 || epnum == 5) && usb_pipeint(urb->pipe) &&
 		    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
 		    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
 		    rtl8723bu_ep1_rx_trace_budget--)
 			dev_err_ratelimited(musb->controller,
-				"rtl8723bu ep1 host_rx csr=%04x count=%u urb_status=%d actual=%u\n",
-				rx_csr, musb_readw(epio, MUSB_RXCOUNT),
+				"rtl8723bu ep%u host_rx csr=%04x count=%u urb_status=%d actual=%u\n",
+				epnum, rx_csr, musb_readw(epio, MUSB_RXCOUNT),
 				urb->status, urb->actual_length);
 	}
 
@@ -2115,14 +2116,26 @@ static int musb_schedule(
 		goto success;
 	}
 
-	/* Keep the RTL8723BU Bluetooth ACL IN queue off Wi-Fi's RX endpoint. */
+	/* RTL8723BU: ACL bulk-IN on EP1 bulk path (in_bulk mux). */
 	if (is_in && qh->dev &&
 	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
-	    qh->epnum == 2 && qh->type == USB_ENDPOINT_XFER_BULK) {
-		hw_ep = musb->endpoints + 4;
+	    qh->epnum == 2 && qh->type == USB_ENDPOINT_XFER_BULK &&
+	    musb->bulk_ep) {
+		hw_ep = musb->bulk_ep;
+		head = &musb->in_bulk;
+		if (qh->dev)
+			qh->intv_reg =
+				(USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
+		goto success;
+	}
+
+	/* RTL8723BU: pin HCI interrupt-IN to EP5 if it is free. */
+	if (is_in && qh->dev &&
+	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
+	    qh->epnum == 1 && qh->type == USB_ENDPOINT_XFER_INT) {
+		hw_ep = musb->endpoints + 5;
 		if (!musb_ep_get_qh(hw_ep, 1)) {
 			idle = 1;
-			hw_ep->rx_reinit = 1;
 			qh->mux = 0;
 			goto success;
 		}
@@ -2236,15 +2249,16 @@ static int musb_schedule(
 	hw_ep = musb->endpoints + best_end;
 	musb_dbg(musb, "qh %p periodic slot %d", qh, best_end);
 success:
-	/* Logging-only: record RTL Bluetooth ACL IN hardware endpoint. */
-	if (is_in && qh->dev && qh->epnum == 2 &&
-	    qh->type == USB_ENDPOINT_XFER_BULK &&
-	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda) {
-		static unsigned int rtl_acl_ep_log_budget = 8;
+	/* Logging-only: record RTL Bluetooth ACL/HCI IN hardware endpoint. */
+	if (is_in && qh->dev &&
+	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
+	    (qh->epnum == 2 || qh->epnum == 1)) {
+		static unsigned int rtl_ep_log_budget = 16;
 
-		if (rtl_acl_ep_log_budget--)
+		if (rtl_ep_log_budget--)
 			dev_err(musb->controller,
-				"rtl8723bu acl in -> musb ep%u\n",
+				"rtl8723bu %s in -> musb ep%u\n",
+				qh->epnum == 2 ? "acl" : "hci",
 				hw_ep->epnum);
 	}
 	if (head) {

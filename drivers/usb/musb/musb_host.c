@@ -2056,10 +2056,11 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 	}
 
-	/* Logging-only: dump RTL RX bytes; EP2 only for small packets. */
+	/* Logging-only: dump RTL RX bytes; non-HCI EPs only for small packets. */
 	if (urb && urb->transfer_buffer &&
 	    (epnum == 1 || epnum == 3 ||
-	     (epnum == 2 && urb->actual_length <= 32)) &&
+	     ((epnum == 2 || epnum == 4 || epnum == 5) &&
+	      urb->actual_length <= 32)) &&
 	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
 	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720) {
 		static unsigned int rtl_ep_rx_data_budget = 64;
@@ -2235,6 +2236,17 @@ static int musb_schedule(
 	hw_ep = musb->endpoints + best_end;
 	musb_dbg(musb, "qh %p periodic slot %d", qh, best_end);
 success:
+	/* Logging-only: record RTL Bluetooth ACL IN hardware endpoint. */
+	if (is_in && qh->dev && qh->epnum == 2 &&
+	    qh->type == USB_ENDPOINT_XFER_BULK &&
+	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda) {
+		static unsigned int rtl_acl_ep_log_budget = 8;
+
+		if (rtl_acl_ep_log_budget--)
+			dev_err(musb->controller,
+				"rtl8723bu acl in -> musb ep%u\n",
+				hw_ep->epnum);
+	}
 	if (head) {
 		idle = list_empty(head);
 		list_add_tail(&qh->ring, head);

@@ -2095,6 +2095,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 				pktsz);
 			urb->actual_length = 0;
 			qh->offset = 0;
+			/* The normal completion path was bypassed, so reissue REQPKT. */
+			musb_start_urb(musb, USB_DIR_IN, qh);
 			return;
 		}
 
@@ -2123,6 +2125,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 					musb_advance_schedule(musb, acl_urb,
 							      acl_hw_ep,
 							      USB_DIR_IN);
+				/* Keep the original HCI interrupt URB armed after redirect. */
+				musb_start_urb(musb, USB_DIR_IN, qh);
 				return;
 			}
 		}

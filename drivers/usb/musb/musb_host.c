@@ -431,6 +431,7 @@ static u16 musb_h_flush_rxfifo(struct musb_hw_ep *hw_ep, u16 csr)
 static bool
 musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 {
+	static unsigned int rtl8723bu_ep1_bad_packets;
 	u16			rx_count;
 	u8			*buf;
 	u16			csr;
@@ -516,6 +517,18 @@ musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 		ioread8_rep(hw_ep->fifo, buf, length);
 	else
 		musb_read_fifo(hw_ep, length, buf);
+
+	if (urb->dev && epnum == 1 && usb_pipeint(pipe) && length &&
+	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
+	    buf[0] == 0 && rtl8723bu_ep1_bad_packets++ < 16)
+		dev_err(musb->controller,
+			"rtl8723bu ep1 bad rxcsr=%04x count=%u len=%u off=%u actual=%u data=%02x %02x %02x %02x %02x %02x %02x %02x\n",
+			musb_readw(epio, MUSB_RXCSR), rx_count, length, qh->offset,
+			urb->actual_length, buf[0], length > 1 ? buf[1] : 0,
+			length > 2 ? buf[2] : 0, length > 3 ? buf[3] : 0,
+			length > 4 ? buf[4] : 0, length > 5 ? buf[5] : 0,
+			length > 6 ? buf[6] : 0, length > 7 ? buf[7] : 0);
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 	csr |= MUSB_RXCSR_H_WZC_BITS;

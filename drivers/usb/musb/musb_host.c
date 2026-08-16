@@ -92,6 +92,10 @@ static void musb_aic_log_qh(const char *tag, struct musb_qh *qh,
 {
 }
 
+/* Set once this boot has actually received an RTL8723BU ACL packet on EP3.
+ * Used to gate EP1 zero-event discards so boot-time HCI init is unaffected. */
+static bool rtl8723bu_acl_rx_seen;
+
 static bool musb_qh_is_rtl8723bu(struct musb_qh *qh)
 {
 	return qh && qh->dev &&
@@ -2057,6 +2061,15 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 	}
 
+	/* Mark that RTL8723BU ACL RX has started (gates EP1 zero discard). */
+	if (epnum == 3 && urb && urb->dev &&
+	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
+	    urb->actual_length > 0 && !rtl8723bu_acl_rx_seen) {
+		rtl8723bu_acl_rx_seen = true;
+		dev_err(musb->controller, "rtl8723bu acl rx seen ep3\n");
+	}
+
 	/*
 	 * RTL8723BU shared-EP1 FIFO redirect: the packet was read into the
 	 * HCI URB (normal path), but if its header says ACL, move it to the
@@ -2075,8 +2088,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		bool is_acl = (pktsz >= 4 &&
 			       (p[2] | (p[3] << 8)) == pktsz - 4);
 
-		/* Drop invalid all-zero HCI events (event code 0 is reserved). */
-		if (p[0] == 0) {
+		/* Drop all-zero HCI events only once ACL RX is active. */
+		if (rtl8723bu_acl_rx_seen && p[0] == 0) {
 			dev_err_ratelimited(musb->controller,
 				"rtl8723bu ep1 discard zero hci len=%u\n",
 				pktsz);

@@ -2056,9 +2056,9 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 	}
 
-	/* Logging-only: dump first bytes of RTL HCI/ACL RX after FIFO copy. */
+	/* Logging-only: dump first bytes of RTL RX after FIFO copy (EP1/2/3). */
 	if (urb && urb->transfer_buffer &&
-	    (epnum == 1 || epnum == 3) &&
+	    (epnum >= 1 && epnum <= 3) &&
 	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
 	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720) {
 		static unsigned int rtl_ep_rx_data_budget = 64;

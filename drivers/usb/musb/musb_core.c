@@ -1736,7 +1736,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	{
 		static unsigned int late_musb_irq_entry_budget = 64;
 
-		if (time_after(jiffies, 20UL * HZ) && late_musb_irq_entry_budget--)
+		if (late_musb_irq_entry_budget--)
 			dev_err(musb->controller,
 				"musb entry irq usb=%02x tx=%04x rx=%04x\n",
 				musb->int_usb, musb->int_tx, musb->int_rx);

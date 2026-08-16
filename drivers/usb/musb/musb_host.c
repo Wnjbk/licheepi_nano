@@ -1810,19 +1810,16 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	u32			status;
 	struct dma_channel	*dma;
 	unsigned int sg_flags = SG_MITER_ATOMIC | SG_MITER_TO_SG;
+	static unsigned int late_musb_rx_entry_budget = 32;
 
 	musb_ep_select(mbase, epnum);
 
-	/* Logging-only: confirm every MUSB RX dispatch entry. */
-	{
-		static unsigned int late_musb_rx_entry_budget = 32;
-
-		if (late_musb_rx_entry_budget--)
-			dev_err(musb->controller,
-				"musb rx entry ep=%u csr=%04x count=%u\n",
-				epnum, musb_readw(epio, MUSB_RXCSR),
-				musb_readw(epio, MUSB_RXCOUNT));
-	}
+	/* Logging-only: RTL HCI/ACL RX dispatch (EP1/EP3) only. */
+	if ((epnum == 1 || epnum == 3) && late_musb_rx_entry_budget--)
+		dev_err_ratelimited(musb->controller,
+			"musb rx entry ep=%u csr=%04x count=%u\n",
+			epnum, musb_readw(epio, MUSB_RXCSR),
+			musb_readw(epio, MUSB_RXCOUNT));
 
 	urb = next_urb(qh);
 	dma = is_dma_capable() ? hw_ep->rx_channel : NULL;
@@ -1853,7 +1850,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
 		    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
 		    rtl8723bu_ep1_rx_trace_budget--)
-			dev_err(musb->controller,
+			dev_err_ratelimited(musb->controller,
 				"rtl8723bu ep1 host_rx csr=%04x count=%u urb_status=%d actual=%u\n",
 				rx_csr, musb_readw(epio, MUSB_RXCOUNT),
 				urb->status, urb->actual_length);

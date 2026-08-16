@@ -1732,15 +1732,11 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	u8		devctl;
 	static unsigned int late_irq_trace_budget = 16;
 
-	/* Logging-only: capture MUSB RX interrupts only (no SOF/TX flood). */
-	{
-		static unsigned int late_musb_rx_irq_budget = 64;
-
-		if (musb->int_rx && late_musb_rx_irq_budget--)
-			dev_err(musb->controller,
-				"musb rx irq usb=%02x tx=%04x rx=%04x\n",
-				musb->int_usb, musb->int_tx, musb->int_rx);
-	}
+	/* Logging-only: RTL HCI/ACL RX (EP1/EP3) only, rate-limited. */
+	if (musb->int_rx & (BIT(1) | BIT(3)))
+		dev_err_ratelimited(musb->controller,
+			"musb rx irq usb=%02x tx=%04x rx=%04x\n",
+			musb->int_usb, musb->int_tx, musb->int_rx);
 
 	if (!musb->int_usb && !musb->int_tx && !musb->int_rx)
 		return IRQ_NONE;
@@ -1782,9 +1778,9 @@ irqreturn_t musb_interrupt(struct musb *musb)
 		musb->int_tx &= ~BIT(0);
 	}
 
-	/* Logging-only: bounded late interrupt bitmap to correlate EP1 RX. */
-	if ((musb->int_tx || musb->int_rx) && late_irq_trace_budget--)
-		dev_err(musb->controller,
+	/* Logging-only: RTL HCI/ACL RX late bitmap, rate-limited. */
+	if ((musb->int_rx & (BIT(1) | BIT(3))) && late_irq_trace_budget--)
+		dev_err_ratelimited(musb->controller,
 			"musb late irq tx=%04x rx=%04x\n",
 			musb->int_tx, musb->int_rx);
 

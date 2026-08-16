@@ -1732,13 +1732,13 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	u8		devctl;
 	static unsigned int late_irq_trace_budget = 16;
 
-	/* Logging-only: confirm MUSB core IRQ entry even when status is zero. */
+	/* Logging-only: capture MUSB RX interrupts only (no SOF/TX flood). */
 	{
-		static unsigned int late_musb_irq_entry_budget = 64;
+		static unsigned int late_musb_rx_irq_budget = 64;
 
-		if (late_musb_irq_entry_budget--)
+		if (musb->int_rx && late_musb_rx_irq_budget--)
 			dev_err(musb->controller,
-				"musb entry irq usb=%02x tx=%04x rx=%04x\n",
+				"musb rx irq usb=%02x tx=%04x rx=%04x\n",
 				musb->int_usb, musb->int_tx, musb->int_rx);
 	}
 
@@ -1783,11 +1783,9 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	}
 
 	/* Logging-only: bounded late interrupt bitmap to correlate EP1 RX. */
-	if ((musb->int_tx || musb->int_rx) &&
-	    time_after(jiffies, 20UL * HZ) &&
-	    late_irq_trace_budget--)
+	if ((musb->int_tx || musb->int_rx) && late_irq_trace_budget--)
 		dev_err(musb->controller,
-			"musb late irq tx=%04lx rx=%04lx\n",
+			"musb late irq tx=%04x rx=%04x\n",
 			musb->int_tx, musb->int_rx);
 
 	status = musb->int_tx;

@@ -189,13 +189,13 @@ static irqreturn_t sunxi_musb_interrupt(int irq, void *__hci)
 	if (musb->int_rx)
 		writew(musb->int_rx, musb->mregs + SUNXI_MUSB_INTRRX);
 
-	/* Logging-only: confirm sunxi glue IRQ entry and raw bits. */
+	/* Logging-only: capture sunxi glue RX interrupts only. */
 	{
-		static unsigned int sunxi_irq_trace_budget = 64;
+		static unsigned int sunxi_rx_irq_budget = 64;
 
-		if (time_after(jiffies, 20UL * HZ) && sunxi_irq_trace_budget--)
+		if (musb->int_rx && sunxi_rx_irq_budget--)
 			dev_err(musb->controller,
-				"sunxi musb irq usb=%02x tx=%04x rx=%04x\n",
+				"sunxi rx irq usb=%02x tx=%04x rx=%04x\n",
 				musb->int_usb, musb->int_tx, musb->int_rx);
 	}
 

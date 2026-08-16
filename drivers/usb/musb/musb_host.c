@@ -1813,11 +1813,11 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	musb_ep_select(mbase, epnum);
 
-	/* Logging-only: confirm every late MUSB RX dispatch entry. */
+	/* Logging-only: confirm every MUSB RX dispatch entry. */
 	{
 		static unsigned int late_musb_rx_entry_budget = 32;
 
-		if (time_after(jiffies, 20UL * HZ) && late_musb_rx_entry_budget--)
+		if (late_musb_rx_entry_budget--)
 			dev_err(musb->controller,
 				"musb rx entry ep=%u csr=%04x count=%u\n",
 				epnum, musb_readw(epio, MUSB_RXCSR),
@@ -1849,8 +1849,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	{
 		static unsigned int rtl8723bu_ep1_rx_trace_budget = 16;
 
-		if (time_after(jiffies, 20UL * HZ) && epnum == 1 &&
-		    usb_pipeint(urb->pipe) &&
+		if (epnum == 1 && usb_pipeint(urb->pipe) &&
 		    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
 		    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
 		    rtl8723bu_ep1_rx_trace_budget--)

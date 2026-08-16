@@ -1897,6 +1897,10 @@ static bool musb_rtl8723bu_ep1_demux(struct musb *musb,
 	musb_writew(epio, MUSB_RXCSR, csr);
 	if (done)
 		musb_advance_schedule(musb, hci_urb, hw_ep, USB_DIR_IN);
+	dev_err_ratelimited(musb->controller,
+		"rtl8723bu ep1 demux hci len=%u done=%d bytes=%02x %02x %02x %02x\n",
+		rx_count, done, rtl_bounce[0], rtl_bounce[1],
+		rtl_bounce[2], rtl_bounce[3]);
 	return true;
 }
 

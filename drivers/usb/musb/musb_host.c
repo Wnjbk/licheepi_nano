@@ -1792,119 +1792,6 @@ static inline int musb_rx_dma_in_inventra_cppi41(struct dma_controller *dma,
 #endif
 
 /*
- * RTL8723BU EP1 RX demux.
- *
- * On this F1C200S/sunxi MUSB, bulk ACL IN data is physically delivered
- * through the EP1 FIFO/status path (shared RX FIFO). The HCI interrupt-IN
- * QH also lives on EP1. Without this demux, ACL packets are read into the
- * HCI URB and corrupt the HCI stream the moment A2DP/SDP traffic starts.
- *
- * We read each EP1 RTL packet into a bounce buffer, classify it by header
- * (HCI event vs ACL data), then copy it into the correct URB and finish
- * the URB ourselves.
- */
-static bool musb_rtl8723bu_ep1_demux(struct musb *musb,
-		struct musb_hw_ep *hw_ep, void __iomem *epio,
-		struct musb_qh *hci_qh, struct urb *hci_urb, u16 rx_csr)
-{
-	u16 rx_count = musb_readw(epio, MUSB_RXCOUNT);
-	struct musb_hw_ep *acl_hw_ep = musb->endpoints + 3;
-	struct musb_qh *acl_qh = acl_hw_ep->in_qh;
-	struct urb *acl_urb = NULL;
-	static u8 rtl_bounce[1024];
-	u16 csr;
-	bool done;
-	bool is_acl = false;
-
-	if (rx_count == 0 || rx_count > sizeof(rtl_bounce)) {
-		if (hci_urb && hci_urb->status == -EINPROGRESS)
-			hci_urb->status = -EOVERFLOW;
-		csr = musb_readw(epio, MUSB_RXCSR);
-		csr |= MUSB_RXCSR_H_WZC_BITS;
-		musb_h_flush_rxfifo(hw_ep, csr);
-		return true;
-	}
-
-	ioread8_rep(hw_ep->fifo, rtl_bounce, rx_count);
-
-	/* HCI event: [code, plen] with plen == rx_count - 2. */
-	if (rx_count >= 2 && rtl_bounce[1] == rx_count - 2 &&
-	    rtl_bounce[0] != 0)
-		is_acl = false;
-	/* ACL data: 4-byte header, little-endian length == rx_count - 4. */
-	else if (rx_count >= 4 &&
-		 (rtl_bounce[2] | (rtl_bounce[3] << 8)) == rx_count - 4)
-		is_acl = true;
-	else
-		is_acl = false;
-
-	if (is_acl && acl_qh) {
-		acl_urb = next_urb(acl_qh);
-		if (!acl_urb) {
-			csr = musb_readw(epio, MUSB_RXCSR);
-			csr |= MUSB_RXCSR_H_WZC_BITS;
-			musb_h_flush_rxfifo(hw_ep, csr);
-			return true;
-		}
-		if (rx_count > acl_urb->transfer_buffer_length -
-				acl_qh->offset) {
-			acl_urb->status = -EOVERFLOW;
-			done = true;
-		} else {
-			memcpy(acl_urb->transfer_buffer + acl_qh->offset,
-			       rtl_bounce, rx_count);
-			acl_urb->actual_length += rx_count;
-			acl_qh->offset += rx_count;
-			done = (acl_urb->actual_length ==
-					acl_urb->transfer_buffer_length) ||
-			       (rx_count < acl_qh->maxpacket) ||
-			       (acl_urb->status != -EINPROGRESS);
-		}
-		csr = musb_readw(epio, MUSB_RXCSR);
-		csr |= MUSB_RXCSR_H_WZC_BITS;
-		csr &= ~(MUSB_RXCSR_RXPKTRDY | MUSB_RXCSR_H_REQPKT);
-		if (!done)
-			csr |= MUSB_RXCSR_H_REQPKT;
-		musb_writew(epio, MUSB_RXCSR, csr);
-		if (done)
-			musb_advance_schedule(musb, acl_urb, acl_hw_ep,
-					      USB_DIR_IN);
-		dev_err_ratelimited(musb->controller,
-			"rtl8723bu ep1 demux acl len=%u done=%d\n",
-			rx_count, done);
-		return true;
-	}
-
-	/* HCI path: copy into the HCI URB and finish it. */
-	if (rx_count > hci_urb->transfer_buffer_length - hci_qh->offset) {
-		hci_urb->status = -EOVERFLOW;
-		done = true;
-	} else {
-		memcpy(hci_urb->transfer_buffer + hci_qh->offset,
-		       rtl_bounce, rx_count);
-		hci_urb->actual_length += rx_count;
-		hci_qh->offset += rx_count;
-		done = (hci_urb->actual_length ==
-				hci_urb->transfer_buffer_length) ||
-		       (rx_count < hci_qh->maxpacket) ||
-		       (hci_urb->status != -EINPROGRESS);
-	}
-	csr = musb_readw(epio, MUSB_RXCSR);
-	csr |= MUSB_RXCSR_H_WZC_BITS;
-	csr &= ~(MUSB_RXCSR_RXPKTRDY | MUSB_RXCSR_H_REQPKT);
-	if (!done)
-		csr |= MUSB_RXCSR_H_REQPKT;
-	musb_writew(epio, MUSB_RXCSR, csr);
-	if (done)
-		musb_advance_schedule(musb, hci_urb, hw_ep, USB_DIR_IN);
-	dev_err_ratelimited(musb->controller,
-		"rtl8723bu ep1 demux hci len=%u done=%d bytes=%02x %02x %02x %02x\n",
-		rx_count, done, rtl_bounce[0], rtl_bounce[1],
-		rtl_bounce[2], rtl_bounce[3]);
-	return true;
-}
-
-/*
  * Service an RX interrupt for the given IN endpoint; docs cover bulk, iso,
  * and high-bandwidth IN transfer cases.
  */
@@ -1952,16 +1839,6 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 			epnum, val, musb_readw(epio, MUSB_RXCOUNT));
 		musb_h_flush_rxfifo(hw_ep, MUSB_RXCSR_CLRDATATOG);
 		return;
-	}
-
-	/* RTL8723BU EP1: demux HCI vs ACL (shared EP1 RX FIFO). */
-	if (epnum == 1 && usb_pipeint(urb->pipe) &&
-	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
-	    (rx_csr & MUSB_RXCSR_RXPKTRDY)) {
-		if (musb_rtl8723bu_ep1_demux(musb, hw_ep, epio, qh, urb,
-					     rx_csr))
-			return;
 	}
 
 	trace_musb_urb_rx(musb, urb);
@@ -2177,6 +2054,54 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 						epnum, iso_err);
 			}
 			musb_dbg(musb, "read %spacket", done ? "last " : "");
+		}
+	}
+
+	/*
+	 * RTL8723BU shared-EP1 FIFO redirect: the packet was read into the
+	 * HCI URB (normal path), but if its header says ACL, move it to the
+	 * ACL bulk URB on EP3 instead and leave the HCI URB armed.
+	 */
+	if (epnum == 1 && urb && qh && !qh->use_sg && !dma &&
+	    usb_pipeint(urb->pipe) &&
+	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
+	    urb->status == -EINPROGRESS && urb->actual_length >= 4 &&
+	    urb->transfer_buffer) {
+		u8 *p = urb->transfer_buffer;
+		u16 pktsz = urb->actual_length;
+		bool is_hci = (pktsz >= 2 && p[1] == pktsz - 2 &&
+			       p[0] != 0);
+		bool is_acl = (pktsz >= 4 &&
+			       (p[2] | (p[3] << 8)) == pktsz - 4);
+
+		if (!is_hci && is_acl) {
+			struct musb_hw_ep *acl_hw_ep = musb->endpoints + 3;
+			struct musb_qh *acl_qh = acl_hw_ep->in_qh;
+			struct urb *acl_urb = acl_qh ? next_urb(acl_qh) : NULL;
+
+			if (acl_urb &&
+			    pktsz <= acl_urb->transfer_buffer_length -
+				    acl_qh->offset) {
+				memcpy(acl_urb->transfer_buffer +
+				       acl_qh->offset, p, pktsz);
+				acl_urb->actual_length += pktsz;
+				acl_qh->offset += pktsz;
+				/* undo the HCI URB accounting */
+				urb->actual_length = 0;
+				qh->offset = 0;
+				dev_err_ratelimited(musb->controller,
+					"rtl8723bu ep1 redirect acl len=%u -> ep3\n",
+					pktsz);
+				if ((acl_urb->actual_length ==
+				     acl_urb->transfer_buffer_length) ||
+				    (pktsz < acl_qh->maxpacket) ||
+				    (acl_urb->status != -EINPROGRESS))
+					musb_advance_schedule(musb, acl_urb,
+							      acl_hw_ep,
+							      USB_DIR_IN);
+				return;
+			}
 		}
 	}
 

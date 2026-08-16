@@ -1735,6 +1735,16 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	if (!musb->int_usb && !musb->int_tx && !musb->int_rx)
 		return IRQ_NONE;
 
+	/* Logging-only: confirm MUSB core IRQ entry with raw bitmaps. */
+	{
+		static unsigned int late_musb_irq_entry_budget = 32;
+
+		if (time_after(jiffies, 20UL * HZ) && late_musb_irq_entry_budget--)
+			dev_err(musb->controller,
+				"musb entry irq usb=%02x tx=%04x rx=%04x\n",
+				musb->int_usb, musb->int_tx, musb->int_rx);
+	}
+
 	devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
 
 	trace_musb_isr(musb);

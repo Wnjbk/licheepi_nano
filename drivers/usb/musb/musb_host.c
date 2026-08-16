@@ -1813,6 +1813,17 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	musb_ep_select(mbase, epnum);
 
+	/* Logging-only: confirm every late MUSB RX dispatch entry. */
+	{
+		static unsigned int late_musb_rx_entry_budget = 32;
+
+		if (time_after(jiffies, 20UL * HZ) && late_musb_rx_entry_budget--)
+			dev_err(musb->controller,
+				"musb rx entry ep=%u csr=%04x count=%u\n",
+				epnum, musb_readw(epio, MUSB_RXCSR),
+				musb_readw(epio, MUSB_RXCOUNT));
+	}
+
 	urb = next_urb(qh);
 	dma = is_dma_capable() ? hw_ep->rx_channel : NULL;
 	status = 0;

@@ -2056,6 +2056,22 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 	}
 
+	/* Logging-only: dump first bytes of RTL HCI/ACL RX after FIFO copy. */
+	if (urb && urb->transfer_buffer &&
+	    (epnum == 1 || epnum == 3) &&
+	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
+	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720) {
+		static unsigned int rtl_ep_rx_data_budget = 64;
+		u8 *p = urb->transfer_buffer;
+
+		if (rtl_ep_rx_data_budget--)
+			dev_err_ratelimited(musb->controller,
+				"rtl8723bu ep%u rxdata len=%u bytes=%02x %02x %02x %02x %02x %02x %02x %02x\n",
+				epnum, urb->actual_length,
+				p[0], p[1], p[2], p[3],
+				p[4], p[5], p[6], p[7]);
+	}
+
 finish:
 	urb->actual_length += xfer_len;
 	qh->offset += xfer_len;

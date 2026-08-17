@@ -1,0 +1,28 @@
+#!/bin/sh
+
+load_module() {
+    name="$1"
+    modprobe "$name" 2>/dev/null && return 0
+    for module in /lib/modules/*/kernel/drivers/usb/musb/"$name".ko /lib/modules/*/"$name".ko
+    do
+        [ -f "$module" ] || continue
+        insmod "$module" 2>/dev/null && return 0
+    done
+    return 1
+}
+
+set_musb_dma() {
+    [ -w /sys/module/musb_hdrc/parameters/use_dma ] || return 0
+    [ "$(cat /sys/module/musb_hdrc/parameters/use_dma 2>/dev/null)" = "N" ] && return 0
+    echo N > /sys/module/musb_hdrc/parameters/use_dma 2>/dev/null
+}
+
+case "$1" in
+    start|restart)
+        load_module musb_hdrc || exit 0
+        load_module sunxi || exit 0
+        set_musb_dma
+        ;;
+esac
+
+exit 0

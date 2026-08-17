@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# MUSB/AIC recovery candidate: do not bind the RTL8723BU Bluetooth interface
+# during boot. Bluetooth remains manually testable after Miracast regression.
+exit 0

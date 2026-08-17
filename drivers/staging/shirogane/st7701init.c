@@ -1,0 +1,278 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Bitbanging ST7701 initialization over GPIO
+ *
+ * Rhodes Island Engineering Dept, 1097
+ */
+
+#include <linux/delay.h>
+#include <linux/gpio/consumer.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
+#include <linux/kernel.h>
+#include <linux/err.h>
+#include <dt-bindings/display/st7701initseq.h>
+#include <linux/workqueue.h>
+
+struct st7701_init_private_data {
+	struct gpio_desc *sda;
+	struct gpio_desc *scl;
+	struct gpio_desc *cs;
+	struct gpio_desc *rst;
+	struct device *dev;
+	struct work_struct init_work;
+
+	int seq_count;
+	u32* seqarr;
+};
+
+inline static void st7701_write_comm(struct st7701_init_private_data *priv, u8 value){
+	int i;
+	
+	gpiod_set_value(priv->scl, 0);
+	gpiod_set_value(priv->sda, 0);
+	gpiod_set_value(priv->scl, 1);
+
+
+	for(i=0; i<8; i++){
+		gpiod_set_value(priv->scl, 0);
+		if(value & 0x80){
+			gpiod_set_value(priv->sda, 1);
+		} else {
+			gpiod_set_value(priv->sda, 0);
+		}
+		value <<= 1;
+		gpiod_set_value(priv->scl, 1);
+	}
+
+	gpiod_set_value(priv->scl, 0);
+}
+
+inline static void st7701_write_data(struct st7701_init_private_data *priv, u8 value){
+	int i;
+	
+	gpiod_set_value(priv->scl, 0);
+	gpiod_set_value(priv->sda, 1);
+	gpiod_set_value(priv->scl, 1);
+
+
+	for(i=0; i<8; i++){
+		gpiod_set_value(priv->scl, 0);
+		if(value & 0x80){
+			gpiod_set_value(priv->sda, 1);
+		} else {
+			gpiod_set_value(priv->sda, 0);
+		}
+		value <<= 1;
+		gpiod_set_value(priv->scl, 1);
+	}
+
+	gpiod_set_value(priv->scl, 0);
+}
+
+static int init_st7701(struct st7701_init_private_data *priv){
+	int i,op,j,len;
+	// printk("srgn:starting st7701 init\n");
+	gpiod_direction_output(priv->sda, 0);
+	gpiod_direction_output(priv->scl, 0);
+	gpiod_direction_output(priv->cs, 0);
+
+	if(priv->rst)
+		gpiod_direction_output(priv->rst, 0);
+
+	gpiod_set_value(priv->cs, 1);
+	gpiod_set_value(priv->scl, 0);
+	gpiod_set_value(priv->sda, 0);
+
+	if(priv->rst){
+		gpiod_set_value(priv->rst, 0);
+		msleep(120);
+		gpiod_set_value(priv->rst, 1);
+		msleep(120);
+	}
+	i = 0;
+
+	while(i < priv->seq_count){
+		op = priv->seqarr[i++];
+		switch (op){
+			case ST7701INIT_BEGIN_WRITE:
+				gpiod_set_value(priv->cs, 0);
+				break;
+			case ST7701INIT_WRITE_COMMAND_8:
+				st7701_write_comm(priv,priv->seqarr[i++]);
+				break;
+			case ST7701INIT_WRITE_C8_D8:
+				st7701_write_comm(priv,priv->seqarr[i++]);
+				st7701_write_data(priv,priv->seqarr[i++]);
+				break;
+			case ST7701INIT_WRITE_C8_D16:
+				st7701_write_comm(priv,priv->seqarr[i++]);
+				st7701_write_data(priv,priv->seqarr[i++]);
+				st7701_write_data(priv,priv->seqarr[i++]);
+				break;
+			case ST7701INIT_WRITE_BYTES:
+			{
+				len = priv->seqarr[i++];
+				for(j=0; j<len; j++){
+					st7701_write_data(priv,priv->seqarr[i++]);
+				}
+				break;
+			}
+			case ST7701INIT_END_WRITE:
+				gpiod_set_value(priv->cs, 1);
+				break;
+			case ST7701INIT_DELAY:
+			{
+				int delay = priv->seqarr[i++];
+				msleep(delay);
+				break;
+			}
+			default:
+				printk("srgn: unknown st7701 op %d\n", op);
+				return -EINVAL;
+		}
+	}
+	// printk("srgn: st7701 init out?\n");
+	return 0;
+
+}
+
+static void st7701_init_work(struct work_struct *work)
+{
+	struct st7701_init_private_data *priv = container_of(work,
+								struct st7701_init_private_data,
+								init_work);
+	int ret;
+
+	printk("srgn: st7701 init work handler running\n");
+	ret = init_st7701(priv);
+	if (ret < 0)
+		printk("srgn: st7701 init (work) failed: %d\n", ret);
+	else
+		printk("srgn: st7701 init (work) completed\n");
+}
+
+
+static struct gpio_desc* st7701init_get_gpio_from_dt(struct device *dev,char *name){
+	struct gpio_desc* retdesc;
+
+	retdesc = devm_gpiod_get(dev, name, GPIOD_OUT_HIGH);
+
+	if (IS_ERR(retdesc)){
+		printk("srgn:failed to get %s from dt: %ld\n", name, PTR_ERR(retdesc));
+		return retdesc;
+	}
+	printk("srgn:using gpio desc for %s\n", name);
+	return retdesc;
+}
+
+
+
+
+static int st7701init_probe(struct platform_device *pdev){
+	struct st7701_init_private_data* priv;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	struct property *prop;
+
+	int ret, i, length;
+
+	// printk("srgn:st7701init probe called\n");
+
+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv){
+		printk("srgn:failed to allocate priv data: %d\n", ret);
+		return -ENOMEM;
+	}
+
+	if (!np) {
+		printk("srgn:failed to get dev tree: %d\n", ret);
+		return -ENOMEM;
+	}
+
+	priv->sda = st7701init_get_gpio_from_dt(dev, "sda");
+	priv->scl = st7701init_get_gpio_from_dt(dev, "scl");
+	priv->cs = st7701init_get_gpio_from_dt(dev, "cs");
+	priv->rst = st7701init_get_gpio_from_dt(dev, "rst");
+
+	if (IS_ERR(priv->sda))
+		return PTR_ERR(priv->sda);
+	if (IS_ERR(priv->scl))
+		return PTR_ERR(priv->scl);
+	if (IS_ERR(priv->cs))
+		return PTR_ERR(priv->cs);
+	if (IS_ERR(priv->rst))
+		return PTR_ERR(priv->rst);
+
+	prop = of_find_property(np,"init-sequence",&length);
+	if(!prop){
+		printk("srgn:failed to get init seq prop");
+		return -EINVAL;
+	};
+
+	priv->seq_count = length / sizeof(u32);
+
+	printk("srgn:init seq count=%d\n",priv->seq_count);
+
+	if(priv->seq_count > 0){
+		priv->seqarr = devm_kcalloc(dev, priv->seq_count,
+					    sizeof(u32), GFP_KERNEL);
+		if(!priv->seqarr){
+			printk("srgn:failed to allocate seq array");
+			return -ENOMEM;
+		}
+
+		ret = of_property_read_u32_array(np, "init-sequence",
+						 priv->seqarr,
+						 priv->seq_count);
+		if (ret < 0){
+			printk("srgn:failed to read init seq array");
+			return ret;
+		}
+	}
+
+	//printk("srgn:seq loaded,%d total\n",priv->seq_count);
+	//for(i = 0; i< priv->seq_count; i++){
+	//	printk("srgn:seq[%d]=0x%08x\n",i,priv->seqarr[i]);
+	//}
+
+	platform_set_drvdata(pdev, priv);
+
+	/* store device and schedule non-blocking init via workqueue */
+	priv->dev = dev;
+	INIT_WORK(&priv->init_work, st7701_init_work);
+	schedule_work(&priv->init_work);
+
+	return 0;
+}
+
+static int st7701init_remove(struct platform_device *pdev){
+	struct st7701_init_private_data *priv = platform_get_drvdata(pdev);
+	if (priv)
+		cancel_work_sync(&priv->init_work);
+	return 0;
+}
+
+static const struct of_device_id st7701init_dt_ids[] = {
+	{ .compatible = "lattland,st7701-initseq", },
+	{ /* sentinel */ }
+};
+
+MODULE_DEVICE_TABLE(of, st7701init_dt_ids);
+
+static struct platform_driver st7701init_driver = {
+	.driver		= {
+		.name	= "st7701init",
+		.of_match_table	= of_match_ptr(st7701init_dt_ids),
+	},
+	.probe		= st7701init_probe,
+	.remove		= st7701init_remove,
+};
+
+module_platform_driver(st7701init_driver);
+MODULE_AUTHOR("Shirogane Tsumugi");
+MODULE_DESCRIPTION("bitbanging ST7701 initialization over GPIO");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:st7701init");

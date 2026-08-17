@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0
+menuconfig SHIROGANE
+    tristate "Shirogane staging drivers"
+    help
+      This option enables Shirogane Staging Drivers.
+
+if SHIROGANE
+
+config SHIROGANE_SIMPLE_ST7701_INIT
+	tristate "Simple ST7701 LCD initialization driver"
+    depends on OF
+	help
+	  A really simple driver to bit-bang the initialization sequence
+	  for ST7701-based LCDs over GPIOs, based on device tree settings.
+
+
+endif # SHIROGANE

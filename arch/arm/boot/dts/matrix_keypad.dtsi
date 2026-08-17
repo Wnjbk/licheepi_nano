@@ -1,0 +1,69 @@
+/*
+ * Matrix keypad DTS fragment for suniv-f1c100s-licheepi-nano.dts
+ *
+ * Physical wiring:
+ *   drive lines : PD0, PD12, PE10, PE11
+ *   sense lines : PE2, PE7, PE8, PE9
+ *
+ * Linux gpio-matrix-keypad semantics:
+ *   col-gpios are actively driven during scan
+ *   row-gpios are read as inputs / IRQ sources
+ *
+ * Actual populated keys were verified on hardware with test_matrix_keys.sh.
+ */
+
+#include <dt-bindings/input/input.h>
+
+/ {
+	matrix_keypad: matrix-keypad {
+		compatible = "gpio-matrix-keypad";
+
+		row-gpios = <&pio 4 2  GPIO_ACTIVE_HIGH    /* PE2  */
+		             &pio 4 7  GPIO_ACTIVE_HIGH    /* PE7  */
+		             &pio 4 8  GPIO_ACTIVE_HIGH    /* PE8  */
+		             &pio 4 9  GPIO_ACTIVE_HIGH>;  /* PE9  */
+
+		col-gpios = <&pio 3 0  GPIO_ACTIVE_HIGH    /* PD0  */
+		             &pio 3 12 GPIO_ACTIVE_HIGH    /* PD12 */
+		             &pio 4 10 GPIO_ACTIVE_HIGH    /* PE10 */
+		             &pio 4 11 GPIO_ACTIVE_HIGH>;  /* PE11 */
+
+		col-scan-delay-us = <5000>;
+		debounce-delay-ms = <10>;
+
+		/*
+		 * Empirically verified matrix layout:
+		 *
+		 *         PD0       PD12      PE10      PE11
+		 * PE2     A         Y         X         B
+		 * PE7     START     --        --        SELECT
+		 * PE8     RIGHT     UP        LEFT      DOWN
+		 * PE9     L1        L2        R1        R2
+		 *
+		 * Chosen keycodes align with the current SDL/gmenu2x stack:
+		 *   A/B/X/Y      -> KEY_A/KEY_B/KEY_X/KEY_Y
+		 *   START/SELECT -> KEY_ENTER/KEY_TAB
+		 *   L1/R1        -> KEY_PAGEUP/KEY_PAGEDOWN
+		 *   L2/R2        -> KEY_HOME/KEY_END
+		 */
+		linux,keymap = <
+			0x0000001e /* row0 col0 KEY_A */
+			0x00010015 /* row0 col1 KEY_Y */
+			0x0002002d /* row0 col2 KEY_X */
+			0x00030030 /* row0 col3 KEY_B */
+
+			0x0100001c /* row1 col0 KEY_ENTER (START) */
+			0x0103000f /* row1 col3 KEY_TAB   (SELECT) */
+
+			0x0200006a /* row2 col0 KEY_RIGHT */
+			0x02010067 /* row2 col1 KEY_UP */
+			0x02020069 /* row2 col2 KEY_LEFT */
+			0x0203006c /* row2 col3 KEY_DOWN */
+
+			0x03000068 /* row3 col0 KEY_PAGEUP   (L1) */
+			0x03010066 /* row3 col1 KEY_HOME     (L2) */
+			0x0302006d /* row3 col2 KEY_PAGEDOWN (R1) */
+			0x0303006b /* row3 col3 KEY_END      (R2) */
+		>;
+	};
+};

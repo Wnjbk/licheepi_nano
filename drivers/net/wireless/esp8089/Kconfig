@@ -1,0 +1,12 @@
+config ESP8089_SPI
+	tristate "Espressif ESP8089 SPI WiFi support"
+	depends on WLAN && MAC80211 && SPI && GPIOLIB
+	depends on CFG80211
+	help
+	  This enables support for ESP8089 WiFi connected over SPI.
+	  The driver keeps the current board-info based bring-up path and
+	  expects board-specific SPI bus and IRQ numbers to be provided by
+	  module parameters when loaded as a module.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called esp8089-spi.

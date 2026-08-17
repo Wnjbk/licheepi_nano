@@ -1,0 +1,175 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR X11)
+/*
+ * Copyright 2018 Icenowy Zheng <icenowy@aosc.io>
+ */
+
+/dts-v1/;
+#include "suniv-f1c100s.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "Lichee Pi Nano";
+	compatible = "licheepi,licheepi-nano", "allwinner,suniv-f1c100s";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	reg_vcc3v3: vcc3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	panel: panel {
+		status = "disabled";
+		compatible = "panel-dpi";
+		width-mm = <36>;
+		height-mm = <64>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		panel-timing {
+			clock-frequency = <20000000>;
+			hactive = <360>;
+			vactive = <640>;
+			hsync-len = <4>;
+			hfront-porch = <26>;
+			hback-porch = <24>;
+			vsync-len = <2>;
+			vfront-porch = <12>;
+			vback-porch = <10>;
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+		};
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			panel_input: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&tcon0_out_lcd>;
+				bus-width = <16>;
+			};
+		};
+	};
+
+	pcm5102a: pcm5102a {
+		#sound-dai-cells = <0>;
+		compatible = "ti,pcm5102a";
+		status = "okay";
+	};
+
+	sound_i2s: sound_i2s {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "I2S-master";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&dailink0_master>;
+		simple-audio-card,frame-master = <&dailink0_master>;
+		status = "okay";
+
+		dailink0_master: simple-audio-card,cpu {
+			sound-dai = <&i2s>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&pcm5102a>;
+		};
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_pe_pins>;
+	status = "okay";
+};
+
+&mmc0 {
+	vmmc-supply = <&reg_vcc3v3>;
+	bus-width = <4>;
+	broken-cd;
+	status = "okay";
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_pa_pins>;
+	status = "okay";
+	cs-gpios = <&pio 4 12 GPIO_ACTIVE_LOW>; /* PE12 */
+
+	st7789v: display@0 {
+		compatible = "sitronix,st7789v";
+		reg = <0>;
+		status = "okay";
+
+		spi-max-frequency = <32000000>;
+		spi-cpol;
+		spi-cpha;
+
+		buswidth = <8>;
+		width = <240>;
+		height = <320>;
+		rgb;
+		rotate = <90>;
+		fps = <30>;
+
+		dc-gpios = <&pio 0 3 GPIO_ACTIVE_LOW>; /* PA3 */
+		reset-gpios = <&pio 0 0 GPIO_ACTIVE_LOW>; /* PA0 */
+	};
+};
+
+&otg_sram {
+	status = "okay";
+};
+
+&usb_otg {
+	dr_mode = "host";
+	status = "okay";
+};
+
+&usbphy {
+	status = "okay";
+};
+
+#include "matrix_keypad.dtsi"
+
+&codec {
+    allwinner,audio-routing =
+    "Headphone", "HP",
+    "Headphone", "HPCOM",
+    "MIC", "Mic";
+    status = "okay";
+};
+
+&i2s {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s_pe_pins>;
+	status = "okay";
+};
+
+&de {
+	status = "disabled";
+};
+
+&tcon0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&lcd_rgb666_pins>;
+	status = "disabled";
+};
+
+&tcon0_out {
+	tcon0_out_lcd: endpoint@0 {
+		reg = <0>;
+		remote-endpoint = <&panel_input>;
+		bus-width = <16>;
+	};
+};

@@ -94,10 +94,16 @@ snapshot_reason(){
 }
 rearm_pbc(){
   reason=$1
-  [ $REARM_COUNT -ge $REARM_MAX ] && { logw "skip rearm reason=$reason max=$REARM_MAX"; return; }
+  consume_budget=${2:-1}
+  if [ "$consume_budget" = '1' ] && [ $REARM_COUNT -ge $REARM_MAX ]; then
+    logw "skip rearm reason=$reason max=$REARM_MAX"
+    return
+  fi
   "$WPA_CLI" -p "$CTRL_DIR" -i "$IFACE" wps_pbc any >>"$RUN/watch.log" 2>&1
   rc=$?
-  REARM_COUNT=$((REARM_COUNT+1))
+  if [ "$consume_budget" = '1' ]; then
+    REARM_COUNT=$((REARM_COUNT+1))
+  fi
   logw "event rearm reason=$reason rc=$rc count=$REARM_COUNT"
 }
 logw 'watch start pbc-req-immediate + rx-counter mode; no periodic wps, no all_sta'
@@ -138,7 +144,7 @@ while true; do
     cur_req=$(pbc_req_count)
     cur_to=$(wps_timeout_count)
     if [ "$cur_req" -gt "$LAST_PBC_REQ" ]; then LAST_PBC_REQ=$cur_req; rearm_pbc pbc_req; fi
-    if [ "$cur_to" -gt "$LAST_WPS_TIMEOUT" ]; then LAST_WPS_TIMEOUT=$cur_to; rearm_pbc wps_timeout; fi
+    if [ "$cur_to" -gt "$LAST_WPS_TIMEOUT" ]; then LAST_WPS_TIMEOUT=$cur_to; rearm_pbc wps_timeout 0; fi
     sleep 1
   fi
 done

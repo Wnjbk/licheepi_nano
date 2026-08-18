@@ -1,0 +1,1 @@
+cmd_/home/wnk/LicheePi_Nano/third_party/aic8800_rx_data_pressure_guard_20260802_v18/aic8800_fdrv/built-in.a := rm -f /home/wnk/LicheePi_Nano/third_party/aic8800_rx_data_pressure_guard_20260802_v18/aic8800_fdrv/built-in.a; arm-linux-gnueabi-ar cDPrST /home/wnk/LicheePi_Nano/third_party/aic8800_rx_data_pressure_guard_20260802_v18/aic8800_fdrv/built-in.a 

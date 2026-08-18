@@ -189,12 +189,6 @@ static irqreturn_t sunxi_musb_interrupt(int irq, void *__hci)
 	if (musb->int_rx)
 		writew(musb->int_rx, musb->mregs + SUNXI_MUSB_INTRRX);
 
-	/* Logging-only: sunxi glue RTL HCI/ACL RX (EP1/EP3), rate-limited. */
-	if (musb->int_rx & (BIT(1) | BIT(3)))
-		dev_err_ratelimited(musb->controller,
-			"sunxi rx irq usb=%02x tx=%04x rx=%04x\n",
-			musb->int_usb, musb->int_tx, musb->int_rx);
-
 	musb_interrupt(musb);
 
 	spin_unlock_irqrestore(&musb->lock, flags);
@@ -719,10 +713,7 @@ static int sunxi_musb_probe(struct platform_device *pdev)
 	glue->dev = &pdev->dev;
 	INIT_WORK(&glue->work, sunxi_musb_work);
 	glue->host_nb.notifier_call = sunxi_musb_host_notifier;
-if (of_device_is_compatible(np, "allwinner,sun4i-a10-musb")||
-        of_device_is_compatible(np, "allwinner,suniv-musb")){ //新增判断项代码
-        set_bit(SUNXI_MUSB_FL_HAS_SRAM, &glue->flags);
-    } 
+
 	if (of_device_is_compatible(np, "allwinner,sun4i-a10-musb"))
 		set_bit(SUNXI_MUSB_FL_HAS_SRAM, &glue->flags);
 
@@ -730,9 +721,7 @@ if (of_device_is_compatible(np, "allwinner,sun4i-a10-musb")||
 		set_bit(SUNXI_MUSB_FL_HAS_RESET, &glue->flags);
 
 	if (of_device_is_compatible(np, "allwinner,sun8i-a33-musb") ||
-	    of_device_is_compatible(np, "allwinner,sun8i-h3-musb")||
-	    of_device_is_compatible(np, "allwinner,suniv-musb")||
-	    of_device_is_compatible(np, "allwinner,sun4i-a10-musb")) {
+	    of_device_is_compatible(np, "allwinner,sun8i-h3-musb")) {
 		set_bit(SUNXI_MUSB_FL_HAS_RESET, &glue->flags);
 		set_bit(SUNXI_MUSB_FL_NO_CONFIGDATA, &glue->flags);
 	}
@@ -825,7 +814,6 @@ static int sunxi_musb_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id sunxi_musb_match[] = {
-{ .compatible = "allwinner,suniv-musb", }, //新增代码
 	{ .compatible = "allwinner,sun4i-a10-musb", },
 	{ .compatible = "allwinner,sun6i-a31-musb", },
 	{ .compatible = "allwinner,sun8i-a33-musb", },

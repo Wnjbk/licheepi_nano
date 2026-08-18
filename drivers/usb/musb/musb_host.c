@@ -10,7 +10,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -81,28 +80,9 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			struct urb *urb, int is_out,
 			u8 *buf, u32 offset, u32 len);
 
-static bool musb_qh_is_aic(struct musb_qh *qh)
-{
-	return qh && qh->dev &&
-		le16_to_cpu(qh->dev->descriptor.idVendor) == 0xa69c;
-}
-
-static void musb_aic_log_qh(const char *tag, struct musb_qh *qh,
-			    struct urb *urb, int is_in)
-{
-}
-
-/* Set once this boot has actually received an RTL8723BU ACL packet on EP3.
- * Used to gate EP1 zero-event discards so boot-time HCI init is unaffected. */
-static bool rtl8723bu_acl_rx_seen;
-
-static bool musb_qh_is_rtl8723bu(struct musb_qh *qh)
-{
-	return qh && qh->dev &&
-		le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
-		le16_to_cpu(qh->dev->descriptor.idProduct) == 0xb720;
-}
-
+/*
+ * Clear TX fifo. Needed to avoid BABBLE errors.
+ */
 static void musb_h_tx_flush_fifo(struct musb_hw_ep *ep)
 {
 	struct musb	*musb = ep->musb;
@@ -249,7 +229,6 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	}
 
 	trace_musb_urb_start(musb, urb);
-	musb_aic_log_qh("start_urb", qh, urb, is_in);
 
 	/* Configure endpoint */
 	musb_ep_set_qh(hw_ep, is_in, qh);
@@ -340,15 +319,6 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 
 	qh->is_ready = 0;
 	musb_giveback(musb, urb, status);
-
-	/*
-	 * musb_giveback() drops musb->lock. The completion callback can remove
-	 * this QH, so reload it before accessing its fields.
-	 */
-	qh = musb_ep_get_qh(hw_ep, is_in);
-	if (!qh)
-		return;
-
 	qh->is_ready = ready;
 
 	/* reclaim resources (and bandwidth) ASAP; deschedule it, and
@@ -436,7 +406,6 @@ static u16 musb_h_flush_rxfifo(struct musb_hw_ep *hw_ep, u16 csr)
 static bool
 musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 {
-	static unsigned int rtl8723bu_ep1_bad_packets;
 	u16			rx_count;
 	u8			*buf;
 	u16			csr;
@@ -510,31 +479,7 @@ musb_host_packet_rx(struct musb *musb, struct urb *urb, u8 epnum, u8 iso_err)
 			urb->status = -EREMOTEIO;
 	}
 
-	/* RTL8723BU HCI events are short PIO reads on the Sunxi MUSB EP1 FIFO. */
-	if (urb->dev && epnum == 1 && usb_pipeint(pipe) &&
-	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720)
-		ioread8_rep(hw_ep->fifo, buf, length);
-	else if (urb->dev && epnum == 3 && usb_pipebulk(pipe) &&
-		 usb_pipeendpoint(pipe) == 2 &&
-		 le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-		 le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720)
-		ioread8_rep(hw_ep->fifo, buf, length);
-	else
-		musb_read_fifo(hw_ep, length, buf);
-
-	if (time_after(jiffies, 20UL * HZ) && urb->dev && epnum == 1 &&
-	    usb_pipeint(pipe) && length &&
-	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
-	    buf[0] == 0 && rtl8723bu_ep1_bad_packets++ < 16)
-		dev_err(musb->controller,
-			"rtl8723bu ep1 bad rxcsr=%04x count=%u len=%u off=%u actual=%u data=%02x %02x %02x %02x %02x %02x %02x %02x\n",
-			musb_readw(epio, MUSB_RXCSR), rx_count, length, qh->offset,
-			urb->actual_length, buf[0], length > 1 ? buf[1] : 0,
-			length > 2 ? buf[2] : 0, length > 3 ? buf[3] : 0,
-			length > 4 ? buf[4] : 0, length > 5 ? buf[5] : 0,
-			length > 6 ? buf[6] : 0, length > 7 ? buf[7] : 0);
+	musb_read_fifo(hw_ep, length, buf);
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 	csr |= MUSB_RXCSR_H_WZC_BITS;
@@ -564,8 +509,6 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, u8 epnum)
 {
 	struct musb_hw_ep *ep = musb->endpoints + epnum;
 	u16	csr;
-
-	musb_ep_select(musb->mregs, epnum);
 
 	/* NOTE:  we know the "rx" fifo reinit never triggers for ep0.
 	 * That always uses tx_reinit since ep0 repurposes TX register
@@ -608,7 +551,6 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, u8 epnum)
 		musb_writeb(musb->mregs, MUSB_FADDR, qh->addr_reg);
 
 	/* protocol/endpoint, interval/NAKlimit, i/o size */
-	musb_ep_select(musb->mregs, epnum);
 	musb_writeb(ep->regs, MUSB_RXTYPE, qh->type_reg);
 	musb_writeb(ep->regs, MUSB_RXINTERVAL, qh->intv_reg);
 	/* NOTE: bulk combining rewrites high bits of maxpacket */
@@ -617,8 +559,6 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, u8 epnum)
 	 */
 	musb_writew(ep->regs, MUSB_RXMAXP,
 			qh->maxpacket | ((qh->hb_mult - 1) << 11));
-	if (musb_qh_is_aic(qh))
-		musb_ep_select(musb->mregs, epnum);
 
 	ep->rx_reinit = 0;
 }
@@ -748,14 +688,8 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			qh->addr_reg, qh->epnum, is_out ? "out" : "in",
 			qh->h_addr_reg, qh->h_port_reg,
 			len);
-	musb_aic_log_qh(is_out ? "ep_program_out" : "ep_program_in",
-			qh, urb, !is_out);
 
 	musb_ep_select(mbase, epnum);
-
-	if (!is_out && musb_qh_is_aic(qh) && !hw_ep->rx_reinit) {
-		hw_ep->rx_reinit = 1;
-	}
 
 	if (is_out && !len) {
 		use_dma = 0;
@@ -905,10 +839,6 @@ finish:
 	} else {
 		u16 csr = 0;
 
-		if (musb_qh_is_aic(qh) && !hw_ep->rx_reinit) {
-			hw_ep->rx_reinit = 1;
-		}
-
 		if (hw_ep->rx_reinit) {
 			musb_rx_reinit(musb, qh, epnum);
 			csr |= musb->io.set_toggle(qh, is_out, urb);
@@ -980,9 +910,6 @@ static void musb_bulk_nak_timeout(struct musb *musb, struct musb_hw_ep *ep,
 	musb_ep_select(mbase, ep->epnum);
 	if (is_in) {
 		dma = is_dma_capable() ? ep->rx_channel : NULL;
-		if (musb_qh_is_aic(first_qh(&musb->in_bulk)))
-			printk("aic-musb bulk_nak_timeout in ep=%u rxcsr=%04x\n",
-			       ep->epnum, musb_readw(epio, MUSB_RXCSR));
 
 		/*
 		 * Need to stop the transaction by clearing REQPKT first
@@ -1814,17 +1741,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	u32			status;
 	struct dma_channel	*dma;
 	unsigned int sg_flags = SG_MITER_ATOMIC | SG_MITER_TO_SG;
-	static unsigned int late_musb_rx_entry_budget = 32;
 
 	musb_ep_select(mbase, epnum);
-
-	/* Logging-only: RTL HCI/ACL RX dispatch (EP1/3/5) only. */
-	if ((epnum == 1 || epnum == 3 || epnum == 5) &&
-	    late_musb_rx_entry_budget--)
-		dev_err_ratelimited(musb->controller,
-			"musb rx entry ep=%u csr=%04x count=%u\n",
-			epnum, musb_readw(epio, MUSB_RXCSR),
-			musb_readw(epio, MUSB_RXCOUNT));
 
 	urb = next_urb(qh);
 	dma = is_dma_capable() ? hw_ep->rx_channel : NULL;
@@ -1847,20 +1765,6 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	trace_musb_urb_rx(musb, urb);
 
-	/* Logging-only: bounded RTL HCI RX dispatch correlation (EP1/EP5). */
-	{
-		static unsigned int rtl8723bu_ep1_rx_trace_budget = 16;
-
-		if ((epnum == 1 || epnum == 5) && usb_pipeint(urb->pipe) &&
-		    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-		    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
-		    rtl8723bu_ep1_rx_trace_budget--)
-			dev_err_ratelimited(musb->controller,
-				"rtl8723bu ep%u host_rx csr=%04x count=%u urb_status=%d actual=%u\n",
-				epnum, rx_csr, musb_readw(epio, MUSB_RXCOUNT),
-				urb->status, urb->actual_length);
-	}
-
 	/* check for errors, concurrent stall & unlink is not really
 	 * handled yet! */
 	if (rx_csr & MUSB_RXCSR_H_RXSTALL) {
@@ -1871,6 +1775,7 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 
 	} else if (rx_csr & MUSB_RXCSR_H_ERROR) {
 		musb_dbg(musb, "end %d RX proto error", epnum);
+
 		status = -EPROTO;
 		musb_writeb(epio, MUSB_RXINTERVAL, 0);
 
@@ -2059,95 +1964,6 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		}
 	}
 
-	/* Mark that RTL8723BU ACL RX has started (gates EP1 zero discard). */
-	if (epnum == 3 && urb && urb->dev &&
-	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
-	    urb->actual_length > 0 && !rtl8723bu_acl_rx_seen) {
-		rtl8723bu_acl_rx_seen = true;
-		dev_err(musb->controller, "rtl8723bu acl rx seen ep3\n");
-	}
-
-	/*
-	 * RTL8723BU shared-EP1 FIFO redirect: the packet was read into the
-	 * HCI URB (normal path), but if its header says ACL, move it to the
-	 * ACL bulk URB on EP3 instead and leave the HCI URB armed.
-	 */
-	if (epnum == 1 && urb && qh && !qh->use_sg && !dma &&
-	    usb_pipeint(urb->pipe) &&
-	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720 &&
-	    urb->status == -EINPROGRESS && urb->actual_length >= 4 &&
-	    urb->transfer_buffer) {
-		u8 *p = urb->transfer_buffer;
-		u16 pktsz = urb->actual_length;
-		bool is_hci = (pktsz >= 2 && p[1] == pktsz - 2 &&
-			       p[0] != 0);
-		bool is_acl = (pktsz >= 4 &&
-			       (p[2] | (p[3] << 8)) == pktsz - 4);
-
-		/* Drop all-zero HCI events only once ACL RX is active. */
-		if (rtl8723bu_acl_rx_seen && p[0] == 0) {
-			dev_err_ratelimited(musb->controller,
-				"rtl8723bu ep1 discard zero hci len=%u\n",
-				pktsz);
-			urb->actual_length = 0;
-			qh->offset = 0;
-			/* The normal completion path was bypassed, so reissue REQPKT. */
-			musb_start_urb(musb, USB_DIR_IN, qh);
-			return;
-		}
-
-		if (!is_hci && is_acl) {
-			struct musb_hw_ep *acl_hw_ep = musb->endpoints + 3;
-			struct musb_qh *acl_qh = acl_hw_ep->in_qh;
-			struct urb *acl_urb = acl_qh ? next_urb(acl_qh) : NULL;
-
-			if (acl_urb &&
-			    pktsz <= acl_urb->transfer_buffer_length -
-				    acl_qh->offset) {
-				memcpy(acl_urb->transfer_buffer +
-				       acl_qh->offset, p, pktsz);
-				acl_urb->actual_length += pktsz;
-				acl_qh->offset += pktsz;
-				/* undo the HCI URB accounting */
-				urb->actual_length = 0;
-				qh->offset = 0;
-				dev_err_ratelimited(musb->controller,
-					"rtl8723bu ep1 redirect acl len=%u -> ep3\n",
-					pktsz);
-				if ((acl_urb->actual_length ==
-				     acl_urb->transfer_buffer_length) ||
-				    (pktsz < acl_qh->maxpacket) ||
-				    (acl_urb->status != -EINPROGRESS))
-					musb_advance_schedule(musb, acl_urb,
-							      acl_hw_ep,
-							      USB_DIR_IN);
-				/* Keep the original HCI interrupt URB armed after redirect. */
-				musb_start_urb(musb, USB_DIR_IN, qh);
-				return;
-			}
-		}
-	}
-
-	/* Logging-only: dump RTL RX bytes; non-HCI EPs only for small packets. */
-	if (urb && urb->transfer_buffer &&
-	    (epnum == 1 || epnum == 3 ||
-	     ((epnum == 2 || epnum == 4 || epnum == 5) &&
-	      urb->actual_length <= 32)) &&
-	    le16_to_cpu(urb->dev->descriptor.idVendor) == 0x0bda &&
-	    le16_to_cpu(urb->dev->descriptor.idProduct) == 0xb720) {
-		static unsigned int rtl_ep_rx_data_budget = 64;
-		u8 *p = urb->transfer_buffer;
-
-		if (rtl_ep_rx_data_budget--)
-			dev_err_ratelimited(musb->controller,
-				"rtl8723bu ep%u rxdata len=%u bytes=%02x %02x %02x %02x %02x %02x %02x %02x\n",
-				epnum, urb->actual_length,
-				p[0], p[1], p[2], p[3],
-				p[4], p[5], p[6], p[7]);
-	}
-
 finish:
 	urb->actual_length += xfer_len;
 	qh->offset += xfer_len;
@@ -2189,32 +2005,6 @@ static int musb_schedule(
 		goto success;
 	}
 
-	/* Keep the RTL8723BU Bluetooth ACL IN queue on EP3 for the demux. */
-	if (is_in && qh->dev &&
-	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
-	    qh->epnum == 2 && qh->type == USB_ENDPOINT_XFER_BULK) {
-		hw_ep = musb->endpoints + 3;
-		if (!musb_ep_get_qh(hw_ep, 1)) {
-			idle = 1;
-			hw_ep->rx_reinit = 1;
-			qh->mux = 0;
-			goto success;
-		}
-	}
-
-	if (is_in && musb_qh_is_aic(qh) && qh->type == USB_ENDPOINT_XFER_BULK &&
-	    musb->bulk_ep) {
-		hw_ep = musb->bulk_ep;
-		if (is_in)
-			head = &musb->in_bulk;
-		else
-			head = &musb->out_bulk;
-		if (qh->dev)
-			qh->intv_reg =
-				(USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
-		goto success;
-	}
-
 	/* else, periodic transfers get muxed to other endpoints */
 
 	/*
@@ -2235,15 +2025,7 @@ static int musb_schedule(
 		if (musb_ep_get_qh(hw_ep, is_in) != NULL)
 			continue;
 
-		/*
-		 * EP1 is the controller's preferred bulk endpoint, but F1C200S
-		 * has only five RX endpoints. A hub status interrupt plus the
-		 * RTL8723BU Wi-Fi/BT receive endpoints needs all five. An idle
-		 * EP1 can safely carry an interrupt IN QH; keep every other use
-		 * on the normal bulk scheduling path.
-		 */
-		if (hw_ep == musb->bulk_ep &&
-		    (!is_in || qh->type != USB_ENDPOINT_XFER_INT))
+		if (hw_ep == musb->bulk_ep)
 			continue;
 
 		if (is_in)
@@ -2310,18 +2092,6 @@ static int musb_schedule(
 	hw_ep = musb->endpoints + best_end;
 	musb_dbg(musb, "qh %p periodic slot %d", qh, best_end);
 success:
-	/* Logging-only: record RTL Bluetooth ACL/HCI IN hardware endpoint. */
-	if (is_in && qh->dev &&
-	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
-	    (qh->epnum == 2 || qh->epnum == 1)) {
-		static unsigned int rtl_ep_log_budget = 16;
-
-		if (rtl_ep_log_budget--)
-			dev_err(musb->controller,
-				"rtl8723bu %s in -> musb ep%u\n",
-				qh->epnum == 2 ? "acl" : "hci",
-				hw_ep->epnum);
-	}
 	if (head) {
 		idle = list_empty(head);
 		list_add_tail(&qh->ring, head);
@@ -2469,10 +2239,6 @@ static int musb_urb_enqueue(
 		interval = 0;
 	}
 	qh->intv_reg = interval;
-	if (musb_qh_is_aic(qh) && usb_pipebulk(urb->pipe) &&
-	    usb_pipein(urb->pipe)) {
-		qh->intv_reg = (USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
-	}
 
 	/* precompute addressing for external hub/tt ports */
 	if (musb->is_multipoint) {
@@ -2546,7 +2312,6 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 	struct dma_channel	*dma = NULL;
 
 	musb_ep_select(regs, hw_end);
-	musb_aic_log_qh("cleanup", qh, urb, is_in);
 
 	if (is_dma_capable()) {
 		dma = is_in ? ep->rx_channel : ep->tx_channel;
@@ -2633,7 +2398,6 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 		 * and its URB list has emptied, recycle this qh.
 		 */
 		if (ready && list_empty(&qh->hep->urb_list)) {
-			musb_ep_set_qh(qh->hw_ep, is_in, NULL);
 			qh->hep->hcpriv = NULL;
 			list_del(&qh->ring);
 			kfree(qh);

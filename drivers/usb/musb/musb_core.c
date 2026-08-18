@@ -66,7 +66,6 @@
 
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/list.h>
@@ -1730,13 +1729,6 @@ irqreturn_t musb_interrupt(struct musb *musb)
 	unsigned long	status;
 	unsigned long	epnum;
 	u8		devctl;
-	static unsigned int late_irq_trace_budget = 16;
-
-	/* Logging-only: RTL HCI/ACL RX (EP1/3/5) only, rate-limited. */
-	if (musb->int_rx & (BIT(1) | BIT(3) | BIT(5)))
-		dev_err_ratelimited(musb->controller,
-			"musb rx irq usb=%02x tx=%04x rx=%04x\n",
-			musb->int_usb, musb->int_tx, musb->int_rx);
 
 	if (!musb->int_usb && !musb->int_tx && !musb->int_rx)
 		return IRQ_NONE;
@@ -1777,12 +1769,6 @@ irqreturn_t musb_interrupt(struct musb *musb)
 		/* we have just handled endpoint 0 IRQ, clear it */
 		musb->int_tx &= ~BIT(0);
 	}
-
-	/* Logging-only: RTL HCI/ACL RX late bitmap, rate-limited. */
-	if ((musb->int_rx & (BIT(1) | BIT(3) | BIT(5))) && late_irq_trace_budget--)
-		dev_err_ratelimited(musb->controller,
-			"musb late irq tx=%04x rx=%04x\n",
-			musb->int_tx, musb->int_rx);
 
 	status = musb->int_tx;
 

@@ -1870,10 +1870,8 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 		status = -EPIPE;
 
 	} else if (rx_csr & MUSB_RXCSR_H_ERROR) {
-		dev_err(musb->controller, "ep%d RX three-strikes error", epnum);
-
-		/* The device is inaccessible; do not immediately resubmit the URB. */
-		status = -ESHUTDOWN;
+		musb_dbg(musb, "end %d RX proto error", epnum);
+		status = -EPROTO;
 		musb_writeb(epio, MUSB_RXINTERVAL, 0);
 
 		rx_csr &= ~MUSB_RXCSR_H_ERROR;

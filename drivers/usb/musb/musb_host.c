@@ -2335,7 +2335,6 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 	struct dma_channel	*dma = NULL;
 
 	musb_ep_select(regs, hw_end);
-	musb_aic_log_qh("cleanup", qh, urb, is_in);
 
 	if (is_dma_capable()) {
 		dma = is_in ? ep->rx_channel : ep->tx_channel;

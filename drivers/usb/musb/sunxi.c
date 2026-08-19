@@ -189,12 +189,6 @@ static irqreturn_t sunxi_musb_interrupt(int irq, void *__hci)
 	if (musb->int_rx)
 		writew(musb->int_rx, musb->mregs + SUNXI_MUSB_INTRRX);
 
-	/* Logging-only: sunxi glue RTL HCI/ACL RX (EP1/EP3), rate-limited. */
-	if (musb->int_rx & (BIT(1) | BIT(3)))
-		dev_err_ratelimited(musb->controller,
-			"sunxi rx irq usb=%02x tx=%04x rx=%04x\n",
-			musb->int_usb, musb->int_tx, musb->int_rx);
-
 	musb_interrupt(musb);
 
 	spin_unlock_irqrestore(&musb->lock, flags);

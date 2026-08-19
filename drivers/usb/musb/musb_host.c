@@ -80,9 +80,24 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			struct urb *urb, int is_out,
 			u8 *buf, u32 offset, u32 len);
 
-/*
- * Clear TX fifo. Needed to avoid BABBLE errors.
- */
+static bool musb_qh_is_aic(struct musb_qh *qh)
+{
+	return qh && qh->dev &&
+		le16_to_cpu(qh->dev->descriptor.idVendor) == 0xa69c;
+}
+
+static void musb_aic_log_qh(const char *tag, struct musb_qh *qh,
+			    struct urb *urb, int is_in)
+{
+}
+
+static bool musb_qh_is_rtl8723bu(struct musb_qh *qh)
+{
+	return qh && qh->dev &&
+		le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
+		le16_to_cpu(qh->dev->descriptor.idProduct) == 0xb720;
+}
+
 static void musb_h_tx_flush_fifo(struct musb_hw_ep *ep)
 {
 	struct musb	*musb = ep->musb;
@@ -229,6 +244,7 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	}
 
 	trace_musb_urb_start(musb, urb);
+	musb_aic_log_qh("start_urb", qh, urb, is_in);
 
 	/* Configure endpoint */
 	musb_ep_set_qh(hw_ep, is_in, qh);
@@ -319,6 +335,15 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 
 	qh->is_ready = 0;
 	musb_giveback(musb, urb, status);
+
+	/*
+	 * musb_giveback() drops musb->lock. The completion callback can remove
+	 * this QH, so reload it before accessing its fields.
+	 */
+	qh = musb_ep_get_qh(hw_ep, is_in);
+	if (!qh)
+		return;
+
 	qh->is_ready = ready;
 
 	/* reclaim resources (and bandwidth) ASAP; deschedule it, and
@@ -510,6 +535,8 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, u8 epnum)
 	struct musb_hw_ep *ep = musb->endpoints + epnum;
 	u16	csr;
 
+	musb_ep_select(musb->mregs, epnum);
+
 	/* NOTE:  we know the "rx" fifo reinit never triggers for ep0.
 	 * That always uses tx_reinit since ep0 repurposes TX register
 	 * offsets; the initial SETUP packet is also a kind of OUT.
@@ -551,6 +578,7 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, u8 epnum)
 		musb_writeb(musb->mregs, MUSB_FADDR, qh->addr_reg);
 
 	/* protocol/endpoint, interval/NAKlimit, i/o size */
+	musb_ep_select(musb->mregs, epnum);
 	musb_writeb(ep->regs, MUSB_RXTYPE, qh->type_reg);
 	musb_writeb(ep->regs, MUSB_RXINTERVAL, qh->intv_reg);
 	/* NOTE: bulk combining rewrites high bits of maxpacket */
@@ -559,6 +587,8 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, u8 epnum)
 	 */
 	musb_writew(ep->regs, MUSB_RXMAXP,
 			qh->maxpacket | ((qh->hb_mult - 1) << 11));
+	if (musb_qh_is_aic(qh))
+		musb_ep_select(musb->mregs, epnum);
 
 	ep->rx_reinit = 0;
 }
@@ -688,8 +718,14 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			qh->addr_reg, qh->epnum, is_out ? "out" : "in",
 			qh->h_addr_reg, qh->h_port_reg,
 			len);
+	musb_aic_log_qh(is_out ? "ep_program_out" : "ep_program_in",
+			qh, urb, !is_out);
 
 	musb_ep_select(mbase, epnum);
+
+	if (!is_out && musb_qh_is_aic(qh) && !hw_ep->rx_reinit) {
+		hw_ep->rx_reinit = 1;
+	}
 
 	if (is_out && !len) {
 		use_dma = 0;
@@ -839,6 +875,10 @@ finish:
 	} else {
 		u16 csr = 0;
 
+		if (musb_qh_is_aic(qh) && !hw_ep->rx_reinit) {
+			hw_ep->rx_reinit = 1;
+		}
+
 		if (hw_ep->rx_reinit) {
 			musb_rx_reinit(musb, qh, epnum);
 			csr |= musb->io.set_toggle(qh, is_out, urb);
@@ -910,6 +950,9 @@ static void musb_bulk_nak_timeout(struct musb *musb, struct musb_hw_ep *ep,
 	musb_ep_select(mbase, ep->epnum);
 	if (is_in) {
 		dma = is_dma_capable() ? ep->rx_channel : NULL;
+		if (musb_qh_is_aic(first_qh(&musb->in_bulk)))
+			printk("aic-musb bulk_nak_timeout in ep=%u rxcsr=%04x\n",
+			       ep->epnum, musb_readw(epio, MUSB_RXCSR));
 
 		/*
 		 * Need to stop the transaction by clearing REQPKT first
@@ -1764,7 +1807,6 @@ void musb_host_rx(struct musb *musb, u8 epnum)
 	}
 
 	trace_musb_urb_rx(musb, urb);
-
 	/* check for errors, concurrent stall & unlink is not really
 	 * handled yet! */
 	if (rx_csr & MUSB_RXCSR_H_RXSTALL) {
@@ -2005,6 +2047,31 @@ static int musb_schedule(
 		goto success;
 	}
 
+	/* Keep the RTL8723BU Bluetooth ACL IN queue off Wi-Fi's RX endpoint. */
+	if (is_in && qh->dev &&
+	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
+	    qh->epnum == 2 && qh->type == USB_ENDPOINT_XFER_BULK) {
+		hw_ep = musb->endpoints + 3;
+		if (!musb_ep_get_qh(hw_ep, 1)) {
+			idle = 1;
+			qh->mux = 0;
+			goto success;
+		}
+	}
+
+	if (is_in && musb_qh_is_aic(qh) && qh->type == USB_ENDPOINT_XFER_BULK &&
+	    musb->bulk_ep) {
+		hw_ep = musb->bulk_ep;
+		if (is_in)
+			head = &musb->in_bulk;
+		else
+			head = &musb->out_bulk;
+		if (qh->dev)
+			qh->intv_reg =
+				(USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
+		goto success;
+	}
+
 	/* else, periodic transfers get muxed to other endpoints */
 
 	/*
@@ -2025,7 +2092,15 @@ static int musb_schedule(
 		if (musb_ep_get_qh(hw_ep, is_in) != NULL)
 			continue;
 
-		if (hw_ep == musb->bulk_ep)
+		/*
+		 * EP1 is the controller's preferred bulk endpoint, but F1C200S
+		 * has only five RX endpoints. A hub status interrupt plus the
+		 * RTL8723BU Wi-Fi/BT receive endpoints needs all five. An idle
+		 * EP1 can safely carry an interrupt IN QH; keep every other use
+		 * on the normal bulk scheduling path.
+		 */
+		if (hw_ep == musb->bulk_ep &&
+		    (!is_in || qh->type != USB_ENDPOINT_XFER_INT))
 			continue;
 
 		if (is_in)
@@ -2239,6 +2314,10 @@ static int musb_urb_enqueue(
 		interval = 0;
 	}
 	qh->intv_reg = interval;
+	if (musb_qh_is_aic(qh) && usb_pipebulk(urb->pipe) &&
+	    usb_pipein(urb->pipe)) {
+		qh->intv_reg = (USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
+	}
 
 	/* precompute addressing for external hub/tt ports */
 	if (musb->is_multipoint) {
@@ -2312,6 +2391,7 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 	struct dma_channel	*dma = NULL;
 
 	musb_ep_select(regs, hw_end);
+	musb_aic_log_qh("cleanup", qh, urb, is_in);
 
 	if (is_dma_capable()) {
 		dma = is_in ? ep->rx_channel : ep->tx_channel;

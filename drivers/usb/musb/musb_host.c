@@ -226,8 +226,6 @@ musb_start_urb(struct musb *musb, int is_in, struct musb_qh *qh)
 	}
 
 	trace_musb_urb_start(musb, urb);
-	musb_aic_log_qh("start_urb", qh, urb, is_in);
-
 	/* Configure endpoint */
 	musb_ep_set_qh(hw_ep, is_in, qh);
 	musb_ep_program(musb, epnum, urb, !is_in, buf, offset, len);

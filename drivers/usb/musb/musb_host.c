@@ -80,17 +80,6 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			struct urb *urb, int is_out,
 			u8 *buf, u32 offset, u32 len);
 
-static bool musb_qh_is_aic(struct musb_qh *qh)
-{
-	return qh && qh->dev &&
-		le16_to_cpu(qh->dev->descriptor.idVendor) == 0xa69c;
-}
-
-static void musb_aic_log_qh(const char *tag, struct musb_qh *qh,
-			    struct urb *urb, int is_in)
-{
-}
-
 static void musb_h_tx_flush_fifo(struct musb_hw_ep *ep)
 {
 	struct musb	*musb = ep->musb;
@@ -580,9 +569,6 @@ musb_rx_reinit(struct musb *musb, struct musb_qh *qh, u8 epnum)
 	 */
 	musb_writew(ep->regs, MUSB_RXMAXP,
 			qh->maxpacket | ((qh->hb_mult - 1) << 11));
-	if (musb_qh_is_aic(qh))
-		musb_ep_select(musb->mregs, epnum);
-
 	ep->rx_reinit = 0;
 }
 
@@ -711,14 +697,7 @@ static void musb_ep_program(struct musb *musb, u8 epnum,
 			qh->addr_reg, qh->epnum, is_out ? "out" : "in",
 			qh->h_addr_reg, qh->h_port_reg,
 			len);
-	musb_aic_log_qh(is_out ? "ep_program_out" : "ep_program_in",
-			qh, urb, !is_out);
-
 	musb_ep_select(mbase, epnum);
-
-	if (!is_out && musb_qh_is_aic(qh) && !hw_ep->rx_reinit) {
-		hw_ep->rx_reinit = 1;
-	}
 
 	if (is_out && !len) {
 		use_dma = 0;
@@ -868,10 +847,6 @@ finish:
 	} else {
 		u16 csr = 0;
 
-		if (musb_qh_is_aic(qh) && !hw_ep->rx_reinit) {
-			hw_ep->rx_reinit = 1;
-		}
-
 		if (hw_ep->rx_reinit) {
 			musb_rx_reinit(musb, qh, epnum);
 			csr |= musb->io.set_toggle(qh, is_out, urb);
@@ -943,10 +918,6 @@ static void musb_bulk_nak_timeout(struct musb *musb, struct musb_hw_ep *ep,
 	musb_ep_select(mbase, ep->epnum);
 	if (is_in) {
 		dma = is_dma_capable() ? ep->rx_channel : NULL;
-		if (musb_qh_is_aic(first_qh(&musb->in_bulk)))
-			printk("aic-musb bulk_nak_timeout in ep=%u rxcsr=%04x\n",
-			       ep->epnum, musb_readw(epio, MUSB_RXCSR));
-
 		/*
 		 * Need to stop the transaction by clearing REQPKT first
 		 * then the NAK Timeout bit ref MUSBMHDRC USB 2.0 HIGH-SPEED
@@ -2052,19 +2023,6 @@ static int musb_schedule(
 		}
 	}
 
-	if (is_in && musb_qh_is_aic(qh) && qh->type == USB_ENDPOINT_XFER_BULK &&
-	    musb->bulk_ep) {
-		hw_ep = musb->bulk_ep;
-		if (is_in)
-			head = &musb->in_bulk;
-		else
-			head = &musb->out_bulk;
-		if (qh->dev)
-			qh->intv_reg =
-				(USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
-		goto success;
-	}
-
 	/* else, periodic transfers get muxed to other endpoints */
 
 	/*
@@ -2307,11 +2265,6 @@ static int musb_urb_enqueue(
 		interval = 0;
 	}
 	qh->intv_reg = interval;
-	if (musb_qh_is_aic(qh) && usb_pipebulk(urb->pipe) &&
-	    usb_pipein(urb->pipe)) {
-		qh->intv_reg = (USB_SPEED_HIGH == qh->dev->speed) ? 8 : 4;
-	}
-
 	/* precompute addressing for external hub/tt ports */
 	if (musb->is_multipoint) {
 		struct usb_device	*parent = urb->dev->parent;

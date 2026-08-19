@@ -716,7 +716,7 @@ static int sunxi_musb_probe(struct platform_device *pdev)
 if (of_device_is_compatible(np, "allwinner,sun4i-a10-musb")||
         of_device_is_compatible(np, "allwinner,suniv-musb")){ //新增判断项代码
         set_bit(SUNXI_MUSB_FL_HAS_SRAM, &glue->flags);
-    } 
+    }
 	if (of_device_is_compatible(np, "allwinner,sun4i-a10-musb"))
 		set_bit(SUNXI_MUSB_FL_HAS_SRAM, &glue->flags);
 

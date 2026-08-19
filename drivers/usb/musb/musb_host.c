@@ -91,13 +91,6 @@ static void musb_aic_log_qh(const char *tag, struct musb_qh *qh,
 {
 }
 
-static bool musb_qh_is_rtl8723bu(struct musb_qh *qh)
-{
-	return qh && qh->dev &&
-		le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
-		le16_to_cpu(qh->dev->descriptor.idProduct) == 0xb720;
-}
-
 static void musb_h_tx_flush_fifo(struct musb_hw_ep *ep)
 {
 	struct musb	*musb = ep->musb;

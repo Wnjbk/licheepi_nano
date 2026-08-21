@@ -42,7 +42,7 @@ static unsigned long long g_lpcm_bytes;
 static unsigned long g_ts_packets;
 static unsigned long g_video_ts_packets;
 static unsigned long g_audio_ts_packets;
-static FILE *g_audio;
+static int g_audio_fd = -1;
 static uint8_t g_audio_pending;
 static int g_audio_have_pending;
 
@@ -359,7 +359,7 @@ static void write_lpcm_le(const uint8_t *payload, size_t payload_len)
     size_t in = 0;
     size_t out = 0;
 
-    if (!g_audio || payload_len == 0)
+    if (g_audio_fd < 0 || payload_len == 0)
         return;
 
     if (g_audio_have_pending) {
@@ -380,21 +380,16 @@ static void write_lpcm_le(const uint8_t *payload, size_t payload_len)
     }
 
     if (out > 0) {
-        size_t wrote = fwrite(converted, 1, out, g_audio);
-        g_lpcm_bytes += (unsigned long long)wrote;
-        if (wrote != out) {
-            clearerr(g_audio);
-            fclose(g_audio);
-            g_audio = NULL;
-            fprintf(stderr, "audio output stopped; continuing video only\n");
-        }
+        ssize_t wrote = write(g_audio_fd, converted, out);
+        if (wrote > 0)
+            g_lpcm_bytes += (unsigned long long)wrote;
     }
 }
 
 static void write_lpcm_from_ts_payload(const uint8_t *payload, int payload_len,
                                        int payload_start)
 {
-    if (!g_audio || payload_len <= 0)
+    if (g_audio_fd < 0 || payload_len <= 0)
         return;
 
     int off = 0;
@@ -498,12 +493,11 @@ int main(int argc, char **argv)
     setvbuf(stdout, NULL, _IONBF, 0);
 
     if (argc >= 4) {
-        g_audio = fopen(argv[3], "wb");
-        if (!g_audio)
+        g_audio_fd = open(argv[3], O_WRONLY | O_NONBLOCK);
+        if (g_audio_fd < 0)
             die("open LPCM output failed: %s", strerror(errno));
-        setvbuf(g_audio, NULL, _IONBF, 0);
         fprintf(stderr,
-                "LPCM output: pid=0x%04x 48000Hz stereo S16_BE -> %s\n",
+                "LPCM output: pid=0x%04x 48000Hz stereo S16_LE nonblocking -> %s\n",
                 AUDIO_PID, argv[3]);
     }
 
@@ -688,8 +682,8 @@ int main(int argc, char **argv)
             "final stats: rtp_packets=%lu rtp_bytes=%llu ts_packets=%lu video_ts_packets=%lu h264_bytes=%llu audio_ts_packets=%lu lpcm_bytes=%llu\n",
             rtp_packets, rtp_bytes, g_ts_packets, g_video_ts_packets,
             g_h264_bytes, g_audio_ts_packets, g_lpcm_bytes);
-    if (g_audio)
-        fclose(g_audio);
+    if (g_audio_fd >= 0)
+        close(g_audio_fd);
     close(rtp);
     close(rtsp);
     return 0;

@@ -42,7 +42,7 @@ stop_audio
 rm -f "$FIFO" "$AUDIO_FIFO" "$APLAY_LOG" /tmp/aic_live_player.log /tmp/aic_live_player.stdout
 mkfifo "$AUDIO_FIFO" || { echo "audio FIFO create failed: $AUDIO_FIFO" >&2; exit 1; }
 amixer -c 2 set Headphone 50% unmute >/dev/null 2>&1 || true
-"$APLAYER" -D hw:2,0 -t raw -f S16_BE -c 2 -r 48000 \
+"$APLAYER" -D hw:2,0 -t raw -f S16_LE -c 2 -r 48000 \
     --period-time 20000 --buffer-time 200000 "$AUDIO_FIFO" >"$APLAY_LOG" 2>&1 &
 echo $! >"$APLAY_PID_FILE"
 PLAYER="$PLAYER" WIDTH=640 HEIGHT=480 FPS=60 FIFO="$FIFO" \

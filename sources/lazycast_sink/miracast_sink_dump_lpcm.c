@@ -43,6 +43,8 @@ static unsigned long g_ts_packets;
 static unsigned long g_video_ts_packets;
 static unsigned long g_audio_ts_packets;
 static FILE *g_audio;
+static uint8_t g_audio_pending;
+static int g_audio_have_pending;
 
 struct rtsp_reader {
     char data[RTSP_BUF_MAX];
@@ -351,6 +353,44 @@ static void write_h264_from_ts_payload(const uint8_t *payload, int payload_len,
     }
 }
 
+static void write_lpcm_le(const uint8_t *payload, size_t payload_len)
+{
+    uint8_t converted[TS_SIZE];
+    size_t in = 0;
+    size_t out = 0;
+
+    if (!g_audio || payload_len == 0)
+        return;
+
+    if (g_audio_have_pending) {
+        converted[out++] = payload[in++];
+        converted[out++] = g_audio_pending;
+        g_audio_have_pending = 0;
+    }
+
+    while (in + 1 < payload_len) {
+        converted[out++] = payload[in + 1];
+        converted[out++] = payload[in];
+        in += 2;
+    }
+
+    if (in < payload_len) {
+        g_audio_pending = payload[in];
+        g_audio_have_pending = 1;
+    }
+
+    if (out > 0) {
+        size_t wrote = fwrite(converted, 1, out, g_audio);
+        g_lpcm_bytes += (unsigned long long)wrote;
+        if (wrote != out) {
+            clearerr(g_audio);
+            fclose(g_audio);
+            g_audio = NULL;
+            fprintf(stderr, "audio output stopped; continuing video only\n");
+        }
+    }
+}
+
 static void write_lpcm_from_ts_payload(const uint8_t *payload, int payload_len,
                                        int payload_start)
 {
@@ -363,21 +403,14 @@ static void write_lpcm_from_ts_payload(const uint8_t *payload, int payload_len,
             return;
         if (!(payload[0] == 0x00 && payload[1] == 0x00 && payload[2] == 0x01))
             return;
-        off = 9 + payload[8];
+        /* WFD LPCM carries a 20-byte PES and LPCM framing header. */
+        off = 20;
         if (off > payload_len)
             return;
     }
 
     if (payload_len > off) {
-        size_t want = (size_t)(payload_len - off);
-        size_t wrote = fwrite(payload + off, 1, want, g_audio);
-        g_lpcm_bytes += (unsigned long long)wrote;
-        if (wrote != want) {
-            clearerr(g_audio);
-            fclose(g_audio);
-            g_audio = NULL;
-            fprintf(stderr, "audio output stopped; continuing video only\n");
-        }
+        write_lpcm_le(payload + off, (size_t)(payload_len - off));
     }
 }
 

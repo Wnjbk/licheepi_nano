@@ -19,13 +19,26 @@ stop_audio()
         [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
         rm -f "$APLAY_PID_FILE"
     fi
+    ps w | grep '[a]play.*aic_lpcm_live.fifo' | awk '{print $1}' | while read pid; do
+        [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+    done
+    sleep 1
+}
+
+stop_video_supervisor()
+{
+    ps w | grep '[s]upervise_h264_fifo_player.sh start' | awk '{print $1}' | while read pid; do
+        [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+    done
+    sleep 1
+    "$BASE/supervise_h264_fifo_player.sh" stop 2>/dev/null || true
 }
 
 case "${1:-start}" in
 stop)
     "$GO_SCRIPT" stop 2>/dev/null || true
     stop_audio
-    "$BASE/supervise_h264_fifo_player.sh" stop 2>/dev/null || true
+    stop_video_supervisor
     rm -f "$FIFO" "$AUDIO_FIFO" "$APLAY_LOG"
     exit 0
     ;;
@@ -37,14 +50,14 @@ esac
 [ -x "$APLAYER" ] || { echo "missing aplay: $APLAYER" >&2; exit 1; }
 [ -e /sys/class/net/wlan1 ] || { echo "wlan1 missing" >&2; exit 1; }
 
-"$BASE/supervise_h264_fifo_player.sh" stop 2>/dev/null || true
+stop_video_supervisor
 stop_audio
 rm -f "$FIFO" "$AUDIO_FIFO" "$APLAY_LOG" /tmp/aic_live_player.log /tmp/aic_live_player.stdout
 mkfifo "$AUDIO_FIFO" || { echo "audio FIFO create failed: $AUDIO_FIFO" >&2; exit 1; }
 amixer -c 2 set Headphone 50% unmute >/dev/null 2>&1 || true
 "$APLAYER" -D hw:2,0 -t raw -f S16_LE -c 2 -r 48000 \
-    --period-time 20000 --buffer-time 200000 "$AUDIO_FIFO" >"$APLAY_LOG" 2>&1 &
-echo $! >"$APLAY_PID_FILE"
+    --period-time 40000 --buffer-time 500000 --start-delay 250000 \
+    --process-id-file "$APLAY_PID_FILE" "$AUDIO_FIFO" >"$APLAY_LOG" 2>&1 &
 PLAYER="$PLAYER" WIDTH=640 HEIGHT=480 FPS=60 FIFO="$FIFO" \
 LOG=/tmp/aic_live_player.log CEDAR_NO_PACE=1 CEDAR_VIEW_STRETCH=0 \
 CEDAR_VIEW_CENTER_CROP=1 CEDAR_VIEW_X=0 CEDAR_VIEW_Y=0 \

@@ -25,6 +25,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -43,6 +44,8 @@ static unsigned long g_ts_packets;
 static unsigned long g_video_ts_packets;
 static unsigned long g_audio_ts_packets;
 static int g_audio_fd = -1;
+static pid_t g_audio_pid = -1;
+static unsigned long long g_lpcm_dropped_bytes;
 static uint8_t g_audio_pending;
 static int g_audio_have_pending;
 
@@ -381,8 +384,13 @@ static void write_lpcm_le(const uint8_t *payload, size_t payload_len)
 
     if (out > 0) {
         ssize_t wrote = write(g_audio_fd, converted, out);
-        if (wrote > 0)
+        if (wrote > 0) {
             g_lpcm_bytes += (unsigned long long)wrote;
+            if ((size_t)wrote < out)
+                g_lpcm_dropped_bytes += (unsigned long long)(out - (size_t)wrote);
+        } else {
+            g_lpcm_dropped_bytes += (unsigned long long)out;
+        }
     }
 }
 
@@ -475,6 +483,61 @@ static int bind_rtp_socket(const char *bind_ip)
     return fd;
 }
 
+static void audio_writer_child(const char *path, int input_fd)
+{
+    uint8_t buf[4096];
+    int output_fd = open(path, O_WRONLY);
+    if (output_fd < 0)
+        _exit(1);
+
+    for (;;) {
+        ssize_t got = read(input_fd, buf, sizeof(buf));
+        if (got == 0)
+            break;
+        if (got < 0) {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+
+        size_t off = 0;
+        while (off < (size_t)got) {
+            ssize_t wrote = write(output_fd, buf + off, (size_t)got - off);
+            if (wrote > 0) {
+                off += (size_t)wrote;
+                continue;
+            }
+            if (wrote < 0 && errno == EINTR)
+                continue;
+            close(output_fd);
+            _exit(1);
+        }
+    }
+
+    close(output_fd);
+    _exit(0);
+}
+
+static void start_audio_writer(const char *path)
+{
+    int pipefd[2];
+    if (pipe(pipefd) < 0)
+        die("audio pipe failed: %s", strerror(errno));
+    if (set_nonblock(pipefd[1]) < 0)
+        die("audio pipe nonblock failed: %s", strerror(errno));
+
+    g_audio_pid = fork();
+    if (g_audio_pid < 0)
+        die("audio writer fork failed: %s", strerror(errno));
+    if (g_audio_pid == 0) {
+        close(pipefd[1]);
+        audio_writer_child(path, pipefd[0]);
+    }
+
+    close(pipefd[0]);
+    g_audio_fd = pipefd[1];
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
@@ -493,11 +556,9 @@ int main(int argc, char **argv)
     setvbuf(stdout, NULL, _IONBF, 0);
 
     if (argc >= 4) {
-        g_audio_fd = open(argv[3], O_WRONLY | O_NONBLOCK);
-        if (g_audio_fd < 0)
-            die("open LPCM output failed: %s", strerror(errno));
+        start_audio_writer(argv[3]);
         fprintf(stderr,
-                "LPCM output: pid=0x%04x 48000Hz stereo S16_LE nonblocking -> %s\n",
+                "LPCM output: pid=0x%04x S16_LE parent-pipe -> child FIFO %s\n",
                 AUDIO_PID, argv[3]);
     }
 
@@ -679,11 +740,15 @@ int main(int argc, char **argv)
 
     fflush(stdout);
     fprintf(stderr,
-            "final stats: rtp_packets=%lu rtp_bytes=%llu ts_packets=%lu video_ts_packets=%lu h264_bytes=%llu audio_ts_packets=%lu lpcm_bytes=%llu\n",
+            "final stats: rtp_packets=%lu rtp_bytes=%llu ts_packets=%lu video_ts_packets=%lu h264_bytes=%llu audio_ts_packets=%lu lpcm_bytes=%llu lpcm_dropped=%llu\n",
             rtp_packets, rtp_bytes, g_ts_packets, g_video_ts_packets,
-            g_h264_bytes, g_audio_ts_packets, g_lpcm_bytes);
+            g_h264_bytes, g_audio_ts_packets, g_lpcm_bytes, g_lpcm_dropped_bytes);
     if (g_audio_fd >= 0)
         close(g_audio_fd);
+    if (g_audio_pid > 0) {
+        kill(g_audio_pid, SIGTERM);
+        waitpid(g_audio_pid, NULL, 0);
+    }
     close(rtp);
     close(rtsp);
     return 0;

@@ -240,6 +240,26 @@ static int sii9022_probe(u8 address)
 	return ret;
 }
 
+static int sii9022_recover_bus(void)
+{
+	int i;
+	int ret;
+
+	/* Release an interrupted I2C slave before interpreting any ACK bit. */
+	sii9022_sda(1);
+	for (i = 0; i < 9; i++) {
+		sii9022_scl(0);
+		sii9022_delay();
+		ret = sii9022_scl(1);
+		if (ret)
+			return ret;
+		sii9022_delay();
+	}
+	sii9022_stop();
+
+	return sii9022_gpio_get(SII9022_SDA) ? 0 : -EBUSY;
+}
+
 static int sii9022_find_address(void)
 {
 	u8 address;
@@ -350,11 +370,18 @@ int sii9022_bootloader_setup(void)
 
 	sii9022_sda(1);
 	ret = sii9022_scl(1);
-	printf("SII9022: idle SDA %d SCL %d HPD %d\n",
+	printf("SII9022: before recovery SDA %d SCL %d HPD %d\n",
 	       sii9022_gpio_get(SII9022_SDA), sii9022_gpio_get(SII9022_SCL),
 	       sii9022_gpio_get(SII9022_INT));
 	if (ret) {
 		printf("SII9022: SCL release failed (%d)\n", ret);
+		return ret;
+	}
+	ret = sii9022_recover_bus();
+	printf("SII9022: after recovery SDA %d SCL %d\n",
+	       sii9022_gpio_get(SII9022_SDA), sii9022_gpio_get(SII9022_SCL));
+	if (ret) {
+		printf("SII9022: SDA remains held low (%d)\n", ret);
 		return ret;
 	}
 

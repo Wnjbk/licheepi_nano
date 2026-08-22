@@ -17,5 +17,5 @@ obj-$(CONFIG_MACH_SUN4I)	+= dram_sun4i_auto.o
 obj-$(CONFIG_MACH_SUN5I)	+= dram_sun5i_auto.o
 obj-$(CONFIG_MACH_SUN7I)	+= dram_sun5i_auto.o
 ifndef CONFIG_SPL_BUILD
-obj-y += st7701-spi-init.o
+obj-y += sii9022-i2c.o
 endif

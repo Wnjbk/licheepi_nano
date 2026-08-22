@@ -653,9 +653,6 @@ static void sunxi_lcdc_tcon0_mode_set(const struct ctfb_res_modes *mode,
 	for (pin = SUNXI_GPD(0); pin <= SUNXI_GPD(27); pin++) {
 #endif
 #ifdef CONFIG_VIDEO_LCD_IF_PARALLEL
-if (pin == SUNXI_GPD(0) || pin == SUNXI_GPD(12) ||
-		    pin == SUNXI_GPD(19))
-          continue;
 		sunxi_gpio_set_cfgpin(pin, SUNXI_GPD_LCD0);
 #endif
 #ifdef CONFIG_VIDEO_LCD_IF_LVDS
@@ -665,9 +662,6 @@ if (pin == SUNXI_GPD(0) || pin == SUNXI_GPD(12) ||
 		sunxi_gpio_set_drv(pin, 3);
 #endif
 	}
-
-	sunxi_gpio_set_cfgpin(SUNXI_GPD(19), SUNXI_GPIO_OUTPUT);
-	gpio_set_value(SUNXI_GPD(19), 0);
 
 	lcdc_pll_set(ccm, 0, mode->pixclock_khz, &clk_div, &clk_double,
 		     sunxi_is_composite());

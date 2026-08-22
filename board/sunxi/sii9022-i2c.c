@@ -277,36 +277,28 @@ static int sii9022_find_address(void)
 
 static int sii9022_write_timing(void)
 {
-	/* 640x480@60: 25.175 MHz, 800 pixels/line, 525 lines/frame. */
+	/* SiI9022 TPI video data: 640x480@60, 25.175 MHz, RGB888 1x. */
 	static const struct {
 		u8 reg;
 		u8 value;
 	} setup[] = {
-		{ SII9022_REG_TPI_ENABLE, 0x80 },
 		{ SII9022_REG_PIXEL_CLK_LSB, 0xd5 },
 		{ SII9022_REG_PIXEL_CLK_MSB, 0x09 },
-		{ SII9022_REG_VERT_FREQ_LSB, 0x70 },
-		{ SII9022_REG_VERT_FREQ_MSB, 0x17 },
-		{ SII9022_REG_TOTAL_PIXELS_LSB, 0x20 },
-		{ SII9022_REG_TOTAL_PIXELS_MSB, 0x03 },
-		{ SII9022_REG_TOTAL_LINES_LSB, 0x0d },
-		{ SII9022_REG_TOTAL_LINES_MSB, 0x02 },
+		{ SII9022_REG_VERT_FREQ_LSB, 60 },
+		{ SII9022_REG_VERT_FREQ_MSB, 0x00 },
+		{ SII9022_REG_TOTAL_PIXELS_LSB, 0x80 },
+		{ SII9022_REG_TOTAL_PIXELS_MSB, 0x02 },
+		{ SII9022_REG_TOTAL_LINES_LSB, 0xe0 },
+		{ SII9022_REG_TOTAL_LINES_MSB, 0x01 },
 		{ SII9022_REG_INPUT_BUS, 0x70 },
-		{ SII9022_REG_INPUT_FORMAT, 0x04 },
-		{ SII9022_REG_OUTPUT_FORMAT, 0x04 },
-		{ SII9022_REG_PAGE, 0x01 },
-		{ SII9022_REG_OFFSET, 0x82 },
-		{ SII9022_REG_ACCESS, 0x01 },
+		{ SII9022_REG_INPUT_FORMAT, 0x00 },
 		{ SII9022_REG_SYS_CTRL, 0x01 },
+		{ SII9022_REG_POWER, 0x00 },
 	};
-	u8 power;
 	int i;
 	int ret;
 
-	ret = sii9022_read(SII9022_REG_POWER, &power);
-	if (ret)
-		return ret;
-	ret = sii9022_write(SII9022_REG_POWER, power & ~0x03);
+	ret = sii9022_write(SII9022_REG_TPI_ENABLE, 0x00);
 	if (ret)
 		return ret;
 
@@ -391,6 +383,12 @@ int sii9022_bootloader_setup(void)
 		return ret;
 	}
 
+	ret = sii9022_write(SII9022_REG_TPI_ENABLE, 0x00);
+	if (ret) {
+		printf("SII9022: TPI request failed (%d)\n", ret);
+		return ret;
+	}
+
 	ret = sii9022_read(0x1b, &id0);
 	if (!ret)
 		ret = sii9022_read(0x1c, &id1);
@@ -405,6 +403,11 @@ int sii9022_bootloader_setup(void)
 	printf("SII9022: addr 0x%02x id %02x %02x %02x, HPD %d\n",
 	       sii9022_i2c_addr, id0, id1, id2,
 	       sii9022_gpio_get(SII9022_INT));
+	if (id0 != 0xb0) {
+		printf("SII9022: invalid TPI device ID %02x (expected b0)\n",
+		       id0);
+		return -ENODEV;
+	}
 	ret = sii9022_write_timing();
 	if (ret)
 		printf("SII9022: configuration failed (%d)\n", ret);

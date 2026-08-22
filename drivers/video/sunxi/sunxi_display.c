@@ -666,6 +666,9 @@ if (pin == SUNXI_GPD(0) || pin == SUNXI_GPD(12) ||
 #endif
 	}
 
+	sunxi_gpio_set_cfgpin(SUNXI_GPD(19), SUNXI_GPIO_OUTPUT);
+	gpio_set_value(SUNXI_GPD(19), 0);
+
 	lcdc_pll_set(ccm, 0, mode->pixclock_khz, &clk_div, &clk_double,
 		     sunxi_is_composite());
 

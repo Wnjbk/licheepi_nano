@@ -37,7 +37,7 @@
 #include <asm/setup.h>
 
 #ifndef CONFIG_SPL_BUILD
-extern int ili9488_spi_bootloader_setup(void);
+extern int st7701_spi_bootloader_setup(void);
 #endif
 
 #if defined CONFIG_VIDEO_LCD_PANEL_I2C && !(defined CONFIG_SPL_BUILD)
@@ -247,9 +247,9 @@ int board_early_init_r(void)
 #ifndef CONFIG_SPL_BUILD
 	int ret;
 
-	ret = ili9488_spi_bootloader_setup();
+	ret = st7701_spi_bootloader_setup();
 	if (ret)
-		printf("ILI9488 init failed: %d\n", ret);
+		printf("ST7701 init failed: %d\n", ret);
 #endif
 	return 0;
 }

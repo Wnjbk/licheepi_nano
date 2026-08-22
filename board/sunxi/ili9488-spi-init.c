@@ -122,8 +122,8 @@ static void ili9488_init_seq(void)
 	static const u8 b0[] = { 0x00 };
 	static const u8 b1[] = { 0xA0 };
 	static const u8 b4[] = { 0x02 };
-	/* Display Function Control: RCM=1 selects RGB SYNC/no-DE mode. */
-	static const u8 b6[] = { 0x69, 0x02 };
+	/* RGB SYNC/no-DE: RCM=1, GS=0, SS=1; NL=0x3B selects 480 lines. */
+	static const u8 b6[] = { 0x69, 0x02, 0x3B };
 	static const u8 e9[] = { 0x00 };
 	static const u8 f7[] = { 0xA9, 0x51, 0x2C, 0x82 };
 	static const u8 zero[] = { 0x00 };

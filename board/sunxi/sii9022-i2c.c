@@ -290,7 +290,7 @@ static int sii9022_write_timing(void)
 		{ SII9022_REG_TOTAL_PIXELS_MSB, 0x02 },
 		{ SII9022_REG_TOTAL_LINES_LSB, 0xe0 },
 		{ SII9022_REG_TOTAL_LINES_MSB, 0x01 },
-		{ SII9022_REG_INPUT_BUS, 0x70 },
+		{ SII9022_REG_INPUT_BUS, 0x60 },
 		{ SII9022_REG_INPUT_FORMAT, 0x00 },
 		{ SII9022_REG_POWER, 0x00 },
 		/* Clear SYS_CTRL.PWR_DWN only after the D0 power-state request. */
@@ -319,7 +319,7 @@ static void sii9022_report_video_state(void)
 	int i;
 	int ret;
 
-	printf("SII9022: RGB input 640x480@60, RGB888, rising-edge, 1x clock\n");
+	printf("SII9022: RGB input 640x480@60, RGB888, falling-edge, 1x clock\n");
 	printf("SII9022: pixel clock 25.175 MHz, htotal 800, vtotal 525\n");
 
 	for (i = 0; i < ARRAY_SIZE(value); i++) {

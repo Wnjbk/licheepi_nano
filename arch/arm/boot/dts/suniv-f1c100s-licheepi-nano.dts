@@ -204,7 +204,7 @@
 	compatible = "allwinner,sun8i-h3-spi";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi1_pa_pins>;
-	status = "okay";
+	status = "disabled";
 
 	esp8089@0 {
 		compatible = "esp,esp8089";
@@ -251,6 +251,11 @@
 
 #include "matrix_keypad.dtsi"
 
+/* PD0 and PD12 are RGB data pins in the SII9022 display configuration. */
+&matrix_keypad {
+	status = "disabled";
+};
+
 &codec {
     allwinner,audio-routing =
     "Headphone", "HP",
@@ -273,9 +278,47 @@
 	status = "okay";
 };
 
+&pio {
+	sii9022_rgb666_de_pins: sii9022-rgb666-de-pins {
+		pins = "PD0", "PD1", "PD2", "PD3", "PD4", "PD5",
+		       "PD6", "PD7", "PD8", "PD9", "PD10", "PD11",
+		       "PD12", "PD13", "PD14", "PD15", "PD16", "PD17",
+		       "PD18", "PD19", "PD20", "PD21";
+		function = "lcd";
+	};
+
+	sii9022_sda_hog: sii9022-sda-hog {
+		gpio-hog;
+		gpios = <0 1 GPIO_ACTIVE_HIGH>;
+		input;
+		line-name = "sii9022-sda";
+	};
+
+	sii9022_scl_hog: sii9022-scl-hog {
+		gpio-hog;
+		gpios = <0 2 GPIO_ACTIVE_HIGH>;
+		input;
+		line-name = "sii9022-scl";
+	};
+
+	sii9022_reset_hog: sii9022-reset-hog {
+		gpio-hog;
+		gpios = <0 3 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "sii9022-reset";
+	};
+
+	sii9022_hpd_hog: sii9022-hpd-hog {
+		gpio-hog;
+		gpios = <4 12 GPIO_ACTIVE_HIGH>;
+		input;
+		line-name = "sii9022-hpd";
+	};
+};
+
 &tcon0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&lcd_rgb565_no_de_pins>;
+	pinctrl-0 = <&sii9022_rgb666_de_pins>;
 	srgn,swap-b-r;
 	status = "okay";
 };
@@ -284,6 +327,6 @@
 	tcon0_out_lcd: endpoint@0 {
 		reg = <0>;
 		remote-endpoint = <&panel_input>;
-		bus-width = <16>;
+		bus-width = <18>;
 	};
 };

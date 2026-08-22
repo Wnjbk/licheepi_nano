@@ -1082,6 +1082,24 @@ static enum sunxi_monitor sunxi_get_default_mon(bool allow_hdmi)
 		return sunxi_monitor_none;
 }
 
+static void sunxi_rgb_test_pattern(const struct ctfb_res_modes *mode)
+{
+	static const u32 colors[] = {
+		0x00ffffff, 0x00ffff00, 0x0000ffff, 0x0000ff00,
+		0x00ff00ff, 0x00ff0000, 0x000000ff, 0x00000000,
+	};
+	u32 *fb = (u32 *)sunxi_display.fb_addr;
+	int x, y;
+
+	for (y = 0; y < mode->yres; y++) {
+		for (x = 0; x < mode->xres; x++)
+			fb[y * mode->xres + x] =
+				colors[x * ARRAY_SIZE(colors) / mode->xres];
+	}
+
+	flush_cache(sunxi_display.fb_addr, sunxi_display.fb_size);
+}
+
 void *video_hw_init(void)
 {
 	static GraphicDevice *graphic_device = &sunxi_display.graphic_device;
@@ -1223,6 +1241,8 @@ void *video_hw_init(void)
 		flush_cache(gd->fb_base, sunxi_display.fb_size);
 	}
 	sunxi_mode_set(mode, fb_dma_addr);
+	sunxi_rgb_test_pattern(mode);
+	printf("RGB framebuffer: eight-color test pattern enabled\n");
 
 	/*
 	 * These are the only members of this structure that are used. All the

@@ -287,33 +287,6 @@
 		function = "lcd";
 	};
 
-	sii9022_sda_hog: sii9022-sda-hog {
-		gpio-hog;
-		gpios = <0 1 GPIO_ACTIVE_HIGH>;
-		input;
-		line-name = "sii9022-sda";
-	};
-
-	sii9022_scl_hog: sii9022-scl-hog {
-		gpio-hog;
-		gpios = <0 2 GPIO_ACTIVE_HIGH>;
-		input;
-		line-name = "sii9022-scl";
-	};
-
-	sii9022_reset_hog: sii9022-reset-hog {
-		gpio-hog;
-		gpios = <0 3 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "sii9022-reset";
-	};
-
-	sii9022_hpd_hog: sii9022-hpd-hog {
-		gpio-hog;
-		gpios = <4 12 GPIO_ACTIVE_HIGH>;
-		input;
-		line-name = "sii9022-hpd";
-	};
 };
 
 &tcon0 {

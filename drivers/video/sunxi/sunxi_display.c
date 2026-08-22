@@ -663,12 +663,21 @@ static void sunxi_lcdc_tcon0_mode_set(const struct ctfb_res_modes *mode,
 #endif
 	}
 
+	printf("RGB pinmux: PD0=%d PD12=%d PD19=%d PD26=%d PD27=%d\n",
+	       sunxi_gpio_get_cfgpin(SUNXI_GPD(0)),
+	       sunxi_gpio_get_cfgpin(SUNXI_GPD(12)),
+	       sunxi_gpio_get_cfgpin(SUNXI_GPD(19)),
+	       sunxi_gpio_get_cfgpin(SUNXI_GPD(26)),
+	       sunxi_gpio_get_cfgpin(SUNXI_GPD(27)));
+
 	lcdc_pll_set(ccm, 0, mode->pixclock_khz, &clk_div, &clk_double,
 		     sunxi_is_composite());
 
 	sunxi_ctfb_mode_to_display_timing(mode, &timing);
 	lcdc_tcon0_mode_set(lcdc, &timing, clk_div, for_ext_vga_dac,
 			    sunxi_display.depth, CONFIG_VIDEO_LCD_DCLK_PHASE);
+	printf("RGB TCON0: mode applied, pclk %u kHz, %ux%u depth %u\n",
+	       mode->pixclock_khz, mode->xres, mode->yres, sunxi_display.depth);
 }
 
 #if defined CONFIG_VIDEO_HDMI || defined CONFIG_VIDEO_VGA || defined CONFIG_VIDEO_COMPOSITE

@@ -292,8 +292,9 @@ static int sii9022_write_timing(void)
 		{ SII9022_REG_TOTAL_LINES_MSB, 0x01 },
 		{ SII9022_REG_INPUT_BUS, 0x70 },
 		{ SII9022_REG_INPUT_FORMAT, 0x00 },
-		{ SII9022_REG_SYS_CTRL, 0x01 },
 		{ SII9022_REG_POWER, 0x00 },
+		/* Clear SYS_CTRL.PWR_DWN only after the D0 power-state request. */
+		{ SII9022_REG_SYS_CTRL, 0x01 },
 	};
 	int i;
 	int ret;

@@ -40,6 +40,8 @@
 #define SII9022_I2C_DELAY_US		5
 #define SII9022_SCL_TIMEOUT_US		1000
 
+static u8 sii9022_i2c_addr = SII9022_I2C_ADDR;
+
 static void sii9022_delay(void)
 {
 	udelay(SII9022_I2C_DELAY_US);
@@ -162,7 +164,7 @@ static int sii9022_write(u8 reg, u8 value)
 
 	ret = sii9022_start();
 	if (!ret)
-		ret = sii9022_write_byte(SII9022_I2C_ADDR << 1);
+		ret = sii9022_write_byte(sii9022_i2c_addr << 1);
 	if (!ret)
 		ret = sii9022_write_byte(reg);
 	if (!ret)
@@ -178,18 +180,45 @@ static int sii9022_read(u8 reg, u8 *value)
 
 	ret = sii9022_start();
 	if (!ret)
-		ret = sii9022_write_byte(SII9022_I2C_ADDR << 1);
+		ret = sii9022_write_byte(sii9022_i2c_addr << 1);
 	if (!ret)
 		ret = sii9022_write_byte(reg);
 	if (!ret)
 		ret = sii9022_start();
 	if (!ret)
-		ret = sii9022_write_byte((SII9022_I2C_ADDR << 1) | 1);
+		ret = sii9022_write_byte((sii9022_i2c_addr << 1) | 1);
 	if (!ret)
 		ret = sii9022_read_byte(value, false);
 	sii9022_stop();
 
 	return ret;
+}
+
+static int sii9022_probe(u8 address)
+{
+	int ret;
+
+	ret = sii9022_start();
+	if (!ret)
+		ret = sii9022_write_byte(address << 1);
+	sii9022_stop();
+
+	return ret;
+}
+
+static int sii9022_find_address(void)
+{
+	u8 address;
+
+	/* The dedicated transmitter bus may strap the address away from 0x39. */
+	for (address = 0x30; address <= 0x3f; address++) {
+		if (!sii9022_probe(address)) {
+			sii9022_i2c_addr = address;
+			return 0;
+		}
+	}
+
+	return -ENXIO;
 }
 
 static int sii9022_write_timing(void)
@@ -253,7 +282,23 @@ int sii9022_bootloader_setup(void)
 	gpio_direction_output(SII9022_RESET, 0);
 	mdelay(10);
 	gpio_direction_output(SII9022_RESET, 1);
-	mdelay(100);
+	mdelay(500);
+
+	sii9022_sda(1);
+	ret = sii9022_scl(1);
+	printf("SII9022: idle SDA %d SCL %d HPD %d\n",
+	       gpio_get_value(SII9022_SDA), gpio_get_value(SII9022_SCL),
+	       gpio_get_value(SII9022_INT));
+	if (ret) {
+		printf("SII9022: SCL release failed (%d)\n", ret);
+		return ret;
+	}
+
+	ret = sii9022_find_address();
+	if (ret) {
+		printf("SII9022: no device responded at 0x30-0x3f (%d)\n", ret);
+		return ret;
+	}
 
 	ret = sii9022_read(0x1b, &id0);
 	if (!ret)
@@ -261,11 +306,13 @@ int sii9022_bootloader_setup(void)
 	if (!ret)
 		ret = sii9022_read(0x1d, &id2);
 	if (ret) {
-		printf("SII9022: no I2C response (%d)\n", ret);
+		printf("SII9022: register read failed at 0x%02x (%d)\n",
+		       sii9022_i2c_addr, ret);
 		return ret;
 	}
 
-	printf("SII9022: id %02x %02x %02x, HPD %d\n", id0, id1, id2,
+	printf("SII9022: addr 0x%02x id %02x %02x %02x, HPD %d\n",
+	       sii9022_i2c_addr, id0, id1, id2,
 	       gpio_get_value(SII9022_INT));
 	ret = sii9022_write_timing();
 	if (ret)

@@ -9,7 +9,7 @@
 
 #include <common.h>
 #include <errno.h>
-#include <asm/gpio.h>
+#include <asm/io.h>
 #include <asm/arch/gpio.h>
 
 #define SII9022_I2C_ADDR	0x39
@@ -42,6 +42,40 @@
 
 static u8 sii9022_i2c_addr = SII9022_I2C_ADDR;
 
+/*
+ * This U-Boot configuration enables DM_GPIO, but does not instantiate GPIO
+ * devices for the suniv PIO banks. Access the proven sunxi PIO registers
+ * directly, as the LCD setup code does, instead of using gpio_*().
+ */
+static struct sunxi_gpio *sii9022_pio(u32 pin)
+{
+	return BANK_TO_GPIO(GPIO_BANK(pin));
+}
+
+static void sii9022_gpio_input(u32 pin)
+{
+	sunxi_gpio_set_cfgpin(pin, SUNXI_GPIO_INPUT);
+}
+
+static void sii9022_gpio_output(u32 pin, int value)
+{
+	struct sunxi_gpio *pio = sii9022_pio(pin);
+	u32 mask = BIT(GPIO_NUM(pin));
+
+	sunxi_gpio_set_cfgpin(pin, SUNXI_GPIO_OUTPUT);
+	if (value)
+		setbits_le32(&pio->dat, mask);
+	else
+		clrbits_le32(&pio->dat, mask);
+}
+
+static int sii9022_gpio_get(u32 pin)
+{
+	struct sunxi_gpio *pio = sii9022_pio(pin);
+
+	return !!(readl(&pio->dat) & BIT(GPIO_NUM(pin)));
+}
+
 static void sii9022_delay(void)
 {
 	udelay(SII9022_I2C_DELAY_US);
@@ -50,9 +84,9 @@ static void sii9022_delay(void)
 static void sii9022_sda(int high)
 {
 	if (high)
-		gpio_direction_input(SII9022_SDA);
+		sii9022_gpio_input(SII9022_SDA);
 	else
-		gpio_direction_output(SII9022_SDA, 0);
+		sii9022_gpio_output(SII9022_SDA, 0);
 }
 
 static int sii9022_scl(int high)
@@ -60,13 +94,13 @@ static int sii9022_scl(int high)
 	int timeout;
 
 	if (!high) {
-		gpio_direction_output(SII9022_SCL, 0);
+		sii9022_gpio_output(SII9022_SCL, 0);
 		return 0;
 	}
 
-	gpio_direction_input(SII9022_SCL);
+	sii9022_gpio_input(SII9022_SCL);
 	for (timeout = 0; timeout < SII9022_SCL_TIMEOUT_US; timeout++) {
-		if (gpio_get_value(SII9022_SCL))
+		if (sii9022_gpio_get(SII9022_SCL))
 			return 0;
 		udelay(1);
 	}
@@ -121,7 +155,7 @@ static int sii9022_write_byte(u8 value)
 	if (ret)
 		return ret;
 	sii9022_delay();
-	ret = gpio_get_value(SII9022_SDA) ? -ENXIO : 0;
+	ret = sii9022_gpio_get(SII9022_SDA) ? -ENXIO : 0;
 	sii9022_scl(0);
 
 	return ret;
@@ -141,7 +175,7 @@ static int sii9022_read_byte(u8 *value, bool ack)
 		if (ret)
 			return ret;
 		sii9022_delay();
-		if (gpio_get_value(SII9022_SDA))
+		if (sii9022_gpio_get(SII9022_SDA))
 			data |= BIT(bit);
 	}
 
@@ -270,25 +304,21 @@ int sii9022_bootloader_setup(void)
 	u8 id0, id1, id2;
 	int ret;
 
-	gpio_request(SII9022_SDA, "sii9022-sda");
-	gpio_request(SII9022_SCL, "sii9022-scl");
-	gpio_request(SII9022_RESET, "sii9022-rst");
-	gpio_request(SII9022_INT, "sii9022-int");
 	sunxi_gpio_set_pull(SII9022_SDA, SUNXI_GPIO_PULL_UP);
 	sunxi_gpio_set_pull(SII9022_SCL, SUNXI_GPIO_PULL_UP);
 	sunxi_gpio_set_pull(SII9022_INT, SUNXI_GPIO_PULL_UP);
-	gpio_direction_input(SII9022_INT);
+	sii9022_gpio_input(SII9022_INT);
 
-	gpio_direction_output(SII9022_RESET, 0);
+	sii9022_gpio_output(SII9022_RESET, 0);
 	mdelay(10);
-	gpio_direction_output(SII9022_RESET, 1);
+	sii9022_gpio_output(SII9022_RESET, 1);
 	mdelay(500);
 
 	sii9022_sda(1);
 	ret = sii9022_scl(1);
 	printf("SII9022: idle SDA %d SCL %d HPD %d\n",
-	       gpio_get_value(SII9022_SDA), gpio_get_value(SII9022_SCL),
-	       gpio_get_value(SII9022_INT));
+	       sii9022_gpio_get(SII9022_SDA), sii9022_gpio_get(SII9022_SCL),
+	       sii9022_gpio_get(SII9022_INT));
 	if (ret) {
 		printf("SII9022: SCL release failed (%d)\n", ret);
 		return ret;
@@ -313,7 +343,7 @@ int sii9022_bootloader_setup(void)
 
 	printf("SII9022: addr 0x%02x id %02x %02x %02x, HPD %d\n",
 	       sii9022_i2c_addr, id0, id1, id2,
-	       gpio_get_value(SII9022_INT));
+	       sii9022_gpio_get(SII9022_INT));
 	ret = sii9022_write_timing();
 	if (ret)
 		printf("SII9022: configuration failed (%d)\n", ret);

@@ -299,6 +299,40 @@ static int sii9022_write_timing(void)
 	return 0;
 }
 
+static void sii9022_report_video_state(void)
+{
+	u8 value[11];
+	u8 sys_ctrl, power, tpi_enable;
+	int i;
+	int ret;
+
+	printf("SII9022: RGB input 640x480@60, RGB888, rising-edge, 1x clock\n");
+	printf("SII9022: pixel clock 25.175 MHz, htotal 800, vtotal 525\n");
+
+	for (i = 0; i < ARRAY_SIZE(value); i++) {
+		ret = sii9022_read(i, &value[i]);
+		if (ret) {
+			printf("SII9022: TPI read 0x%02x failed (%d)\n", i, ret);
+			return;
+		}
+	}
+	ret = sii9022_read(SII9022_REG_SYS_CTRL, &sys_ctrl);
+	if (!ret)
+		ret = sii9022_read(SII9022_REG_POWER, &power);
+	if (!ret)
+		ret = sii9022_read(SII9022_REG_TPI_ENABLE, &tpi_enable);
+	if (ret) {
+		printf("SII9022: control readback failed (%d)\n", ret);
+		return;
+	}
+
+	printf("SII9022: TPI[00-0a] %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	       value[0], value[1], value[2], value[3], value[4], value[5],
+	       value[6], value[7], value[8], value[9], value[10]);
+	printf("SII9022: TPI C7=%02x 1A=%02x 1E=%02x\n",
+	       tpi_enable, sys_ctrl, power);
+}
+
 int sii9022_bootloader_setup(void)
 {
 	u8 id0, id1, id2;
@@ -347,8 +381,10 @@ int sii9022_bootloader_setup(void)
 	ret = sii9022_write_timing();
 	if (ret)
 		printf("SII9022: configuration failed (%d)\n", ret);
-	else
+	else {
 		printf("SII9022: 640x480@60 HDMI output enabled\n");
+		sii9022_report_video_state();
+	}
 
 	return ret;
 }

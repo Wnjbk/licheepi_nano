@@ -678,6 +678,9 @@ static void sunxi_lcdc_tcon0_mode_set(const struct ctfb_res_modes *mode,
 			    sunxi_display.depth, CONFIG_VIDEO_LCD_DCLK_PHASE);
 	printf("RGB TCON0: mode applied, pclk %u kHz, %ux%u depth %u\n",
 	       mode->pixclock_khz, mode->xres, mode->yres, sunxi_display.depth);
+	/* SII9022 isolation: hold DE active while retaining TCON RGB timing. */
+	sunxi_gpio_set_cfgpin(SUNXI_GPD(19), SUNXI_GPIO_OUTPUT);
+	gpio_set_value(SUNXI_GPD(19), 1);
 }
 
 #if defined CONFIG_VIDEO_HDMI || defined CONFIG_VIDEO_VGA || defined CONFIG_VIDEO_COMPOSITE

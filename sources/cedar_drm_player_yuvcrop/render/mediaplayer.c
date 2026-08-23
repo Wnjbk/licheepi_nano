@@ -91,6 +91,11 @@ static void mp_configure_yuv_view_once(mediaplayer_t *mp, VideoPicture *picture)
 
     int src_w = picture->nWidth;
     int src_h = picture->nHeight;
+
+    log_info("cedar yuv frame: width=%d height=%d stride=%d format=%d offsets=%d,%d,%d,%d",
+             picture->nWidth, picture->nHeight, picture->nLineStride,
+             picture->ePixelFormat, picture->nLeftOffset, picture->nTopOffset,
+             picture->nRightOffset, picture->nBottomOffset);
     int safe_x = mp_env_int("CEDAR_VIEW_X", 12);
     int safe_y = mp_env_int("CEDAR_VIEW_Y", 0);
     int safe_w = mp_env_int("CEDAR_VIEW_W", 360);

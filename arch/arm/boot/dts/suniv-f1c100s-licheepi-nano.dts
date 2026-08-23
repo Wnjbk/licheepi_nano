@@ -6,6 +6,7 @@
 /dts-v1/;
 #include "suniv-f1c100s.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/display/st7701initseq.h>
 
 / {
@@ -27,8 +28,33 @@
 		regulator-max-microvolt = <3300000>;
 	};
 
+	i2c_sii9022: i2c-sii9022 {
+		compatible = "i2c-gpio";
+		sda-gpios = <&pio 0 1 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&pio 0 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		i2c-gpio,sda-open-drain;
+		i2c-gpio,scl-open-drain;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sii9022: hdmi@39 {
+			compatible = "sil,sii9022";
+			reg = <0x39>;
+			reset-gpios = <&pio 0 3 GPIO_ACTIVE_LOW>;
+			interrupt-parent = <&pio>;
+			interrupts = <4 12 IRQ_TYPE_EDGE_RISING>;
+
+			port {
+				sii9022_input: endpoint {
+					remote-endpoint = <&tcon0_out_lcd>;
+					bus-width = <18>;
+				};
+			};
+		};
+	};
+
 	panel: panel {
-		status = "okay";
+		status = "disabled";
 		compatible = "lattland,mostima", "simple-panel";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -299,7 +325,7 @@
 &tcon0_out {
 	tcon0_out_lcd: endpoint@0 {
 		reg = <0>;
-		remote-endpoint = <&panel_input>;
+		remote-endpoint = <&sii9022_input>;
 		bus-width = <18>;
 	};
 };

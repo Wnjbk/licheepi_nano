@@ -1009,6 +1009,16 @@ static void *mp_decoder_thread(void *param)
                 }
 
                 item_to_display->mount.type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_YUV;
+                {
+                    static int cedar_address_logged;
+                    if (!cedar_address_logged) {
+                    log_info("cedar address: p0=%p p1=%p phyY=%llx phyC=%llx",
+                             picture->pData0, picture->pData1,
+                             (unsigned long long)picture->phyYBufAddr,
+                             (unsigned long long)picture->phyCBufAddr);
+                        cedar_address_logged = 1;
+                    }
+                }
                 item_to_display->mount.arg0 = (uint32_t)picture->pData0;
                 item_to_display->mount.arg1 = (uint32_t)picture->pData1;
                 item_to_display->mount.arg2 = 0;

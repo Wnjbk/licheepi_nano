@@ -808,6 +808,19 @@ int sun4i_frontend_init(struct sun4i_frontend *frontend)
 }
 EXPORT_SYMBOL(sun4i_frontend_init);
 
+void sun4i_frontend_prepare_mb32_yuv(struct sun4i_frontend *frontend)
+{
+	/* Match the YUV420 chroma phase used by the normal DRM plane path. */
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_HORZPHASE_REG, 0);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_HORZPHASE_REG, 0xfc000);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_VERTPHASE0_REG, 0);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH0_VERTPHASE1_REG, 0);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_VERTPHASE0_REG, 0xfc000);
+	regmap_write(frontend->regs, SUN4I_FRONTEND_CH1_VERTPHASE1_REG, 0xfc000);
+	sun4i_frontend_scaler_init(frontend);
+}
+EXPORT_SYMBOL(sun4i_frontend_prepare_mb32_yuv);
+
 void sun4i_frontend_exit(struct sun4i_frontend *frontend)
 {
 	pm_runtime_put(frontend->dev);

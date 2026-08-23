@@ -277,6 +277,7 @@ static int srgn_atomic_commit_mount_set_yuv_view(struct sun4i_frontend *frontend
 		printk(KERN_ERR "srgn: frontend init failed %d\n", ret);
 		return ret;
 	}
+	sun4i_frontend_prepare_mb32_yuv(frontend);
 
 	chroma_src_w = DIV_ROUND_UP(src_w, 2);
 	chroma_src_h = DIV_ROUND_UP(src_h, 2);

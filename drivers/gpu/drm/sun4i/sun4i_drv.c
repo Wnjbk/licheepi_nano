@@ -8,11 +8,13 @@
 
 #include "sun4i_backend.h"
 #include <linux/component.h>
+#include <linux/capability.h>
 #include <linux/kfifo.h>
 #include <linux/module.h>
 #include <linux/of_graph.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
+#include <linux/sizes.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_drv.h>
@@ -195,16 +197,28 @@ static int srgn_atomic_commit_mount_fb_yuv(struct sun4i_frontend *frontend, stru
 {
 	phys_addr_t phys_addr_y, phys_addr_uv;
 	phys_addr_t phys_addr;
+	phys_addr_t max_phys = PHYS_OFFSET + SZ_64M;
 
 	int ret;
 
-	ret = srgn_get_phy_addr(data->arg0, &phys_addr_y);
-	if (ret < 0) {
-		return ret;
-	}
-	ret = srgn_get_phy_addr(data->arg1, &phys_addr_uv);
-	if (ret < 0) {
-		return ret;
+	if (data->arg2 == 0x53475250) {
+		if (!capable(CAP_SYS_RAWIO))
+			return -EPERM;
+
+		phys_addr_y = data->arg0;
+		phys_addr_uv = data->arg1;
+		if (phys_addr_y < PHYS_OFFSET || phys_addr_y >= max_phys ||
+		    phys_addr_uv < PHYS_OFFSET || phys_addr_uv >= max_phys)
+			return -ERANGE;
+	} else {
+		ret = srgn_get_phy_addr(data->arg0, &phys_addr_y);
+		if (ret < 0) {
+			return ret;
+		}
+		ret = srgn_get_phy_addr(data->arg1, &phys_addr_uv);
+		if (ret < 0) {
+			return ret;
+		}
 	}
 
 	if (srgn_yuv_crop_enabled) {

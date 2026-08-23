@@ -26,7 +26,8 @@ esac
 rm -f "$FIFO" /tmp/aic_live_player.log /tmp/aic_live_player.stdout
 PLAYER="$PLAYER" WIDTH=640 HEIGHT=480 FPS=60 FIFO="$FIFO" \
 LOG=/tmp/aic_live_player.log CEDAR_NO_PACE=1 CEDAR_VIEW_STRETCH=0 \
-CEDAR_VIEW_CENTER_CROP=0 \
+CEDAR_VIEW_CENTER_CROP=0 CEDAR_VIEW_X=0 CEDAR_VIEW_Y=0 \
+CEDAR_VIEW_W=640 CEDAR_VIEW_H=480 \
 "$BASE/supervise_h264_fifo_player.sh" start >/tmp/aic_live_supervisor.stdout 2>&1 &
 
 i=0

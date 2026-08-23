@@ -1021,9 +1021,15 @@ static void *mp_decoder_thread(void *param)
                         cedar_address_logged = 1;
                     }
                 }
-                item_to_display->mount.arg0 = (uint32_t)picture->pData0;
-                item_to_display->mount.arg1 = (uint32_t)picture->pData1;
-                item_to_display->mount.arg2 = 0;
+                if (mp_env_flag("CEDAR_USE_CEDAR_PHYS")) {
+                    item_to_display->mount.arg0 = (uint32_t)(picture->phyYBufAddr + 0x40000000ULL);
+                    item_to_display->mount.arg1 = (uint32_t)(picture->phyCBufAddr + 0x40000000ULL);
+                    item_to_display->mount.arg2 = 0x53475250;
+                } else {
+                    item_to_display->mount.arg0 = (uint32_t)picture->pData0;
+                    item_to_display->mount.arg1 = (uint32_t)picture->pData1;
+                    item_to_display->mount.arg2 = 0;
+                }
                 item_to_display->userdata = (void*)picture;
                 // this "on_heap" means that the item_to_display 
                 // will be free by the drm_warpper, not by the mediaplayer.

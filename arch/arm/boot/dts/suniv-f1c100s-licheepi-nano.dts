@@ -64,7 +64,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			panel_input: endpoint@0 {
 				reg = <0>;
 				remote-endpoint = <&tcon0_out_lcd>;
 			};

@@ -1012,10 +1012,12 @@ static void *mp_decoder_thread(void *param)
                 {
                     static int cedar_address_logged;
                     if (!cedar_address_logged) {
-                    log_info("cedar address: p0=%p p1=%p phyY=%llx phyC=%llx",
+                    log_info("cedar address: p0=%p p1=%p phyY=%llx phyC=%llx fd=%d private=%p stride=%d format=%d",
                              picture->pData0, picture->pData1,
                              (unsigned long long)picture->phyYBufAddr,
-                             (unsigned long long)picture->phyCBufAddr);
+                             (unsigned long long)picture->phyCBufAddr,
+                             picture->nBufFd, picture->pPrivate,
+                             picture->nLineStride, picture->ePixelFormat);
                         cedar_address_logged = 1;
                     }
                 }

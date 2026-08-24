@@ -74,7 +74,7 @@ static int mp_env_int(const char *name, int fallback)
     if (!v || !*v)
         return fallback;
     int n = atoi(v);
-    return n > 0 ? n : fallback;
+    return n >= 0 ? n : fallback;
 }
 
 

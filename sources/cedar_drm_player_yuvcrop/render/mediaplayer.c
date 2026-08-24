@@ -1018,6 +1018,12 @@ static void *mp_decoder_thread(void *param)
                              (unsigned long long)picture->phyCBufAddr,
                              picture->nBufFd, picture->pPrivate,
                              picture->nLineStride, picture->ePixelFormat);
+                    log_info("cedar layout: visible=%dx%d offset L=%d R=%d T=%d B=%d phyY-phyC=%lld",
+                             picture->nWidth, picture->nHeight,
+                             picture->nLeftOffset, picture->nRightOffset,
+                             picture->nTopOffset, picture->nBottomOffset,
+                             (long long)((int64_t)picture->phyYBufAddr -
+                                         (int64_t)picture->phyCBufAddr));
                         cedar_address_logged = 1;
                     }
                 }

@@ -65,6 +65,7 @@ static void* drm_warpper_display_thread(void *arg){
         .size = 0,
         .data = (uint32_t)(uintptr_t)commits,
     };
+    static bool first_yuv_commit_logged;
     int ret;
 
     log_info("==> DRM_Warpper Display Thread Started!");
@@ -86,6 +87,13 @@ static void* drm_warpper_display_thread(void *arg){
                     commits[commit_req.size].arg0 = item->mount.arg0;
                     commits[commit_req.size].arg1 = item->mount.arg1;
                     commits[commit_req.size].arg2 = item->mount.arg2;
+                    if (!first_yuv_commit_logged &&
+                        item->mount.type == DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_YUV) {
+                        log_info("srgn yuv ioctl: arg0=%08x arg1=%08x arg2=%08x",
+                                 item->mount.arg0, item->mount.arg1,
+                                 item->mount.arg2);
+                        first_yuv_commit_logged = true;
+                    }
                     commit_req.size++;
                     if(item->mount.type == DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_NORMAL 
                         || item->mount.type == DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_YUV){

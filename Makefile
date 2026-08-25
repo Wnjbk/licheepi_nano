@@ -33,7 +33,6 @@ OS_FEATURE-$(STRSEP)                 += osdep/strsep.c
 OS_FEATURE-$(VSSCANF)                += osdep/vsscanf.c
 
 # conditional source declarations
-SRCS_COMMON                     += libmpcodecs/vd_cedar.c libvo/vo_cedar_drm.c
 SRCS_AUDIO_INPUT-$(ALSA)             += stream/ai_alsa.c
 SRCS_AUDIO_INPUT-$(OSS)              += stream/ai_oss.c
 SRCS_COMMON-$(AUDIO_INPUT)           += $(SRCS_AUDIO_INPUT-yes)
@@ -443,6 +442,7 @@ SRCS_COMMON = asxparser.c                       \
               $(OS_FEATURE-no)
 
 # MPlayer
+SRCS_MPLAYER                 += libmpcodecs/vd_cedar.c libvo/vo_cedar_drm.c
 SRCS_MPLAYER-$(3DFX)         += libvo/vo_3dfx.c
 SRCS_MPLAYER-$(AA)           += libvo/vo_aa.c
 SRCS_MPLAYER-$(ALSA)         += libao2/ao_alsa.c

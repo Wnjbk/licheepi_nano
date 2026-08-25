@@ -1120,7 +1120,7 @@ dhahelperclean:
 cedar-relink:
 	rm -f libmpcodecs/vd.o libmpcodecs/vd_cedar.o \
 		libvo/video_out.o libvo/vo_cedar_drm.o \
-		codec-cfg.o codec-cfg.c codecs.conf.h mplayer
+		mplayer
 	$(MAKE) mplayer
 
 # Disable suffix rules.  Most of the builtin rules are suffix rules,

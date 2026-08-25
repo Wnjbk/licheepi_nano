@@ -143,8 +143,8 @@ static int init(sh_video_t *sh)
     info.eCodecFormat = VIDEO_CODEC_FORMAT_H264;
     info.nWidth = sh->disp_w;
     info.nHeight = sh->disp_h;
-    info.nFrameRate = (sh->fps > 0 ? sh->fps : 30) * 1000;
-    info.nFrameDuration = 1000000 / (info.nFrameRate / 1000);
+    info.nFrameRate = sh->fps > 0 ? sh->fps : 30;
+    info.nFrameDuration = 1000000 / info.nFrameRate;
     info.nAspectRatio = 1000;
     /* The first candidate accepts Annex-B H.264 access units. */
     info.pCodecSpecificData = (sh->bih && sh->bih->biSize > sizeof(*sh->bih)) ? (char *)(sh->bih + 1) : NULL;
@@ -295,30 +295,21 @@ fail:
 static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
 {
     vd_cedar_ctx *ctx = sh->context;
-    VideoPicture *picture = NULL;
+    VideoPicture *picture;
     mp_image_t *mpi;
-    int result, attempts;
+    int result;
 
     if (!ctx || !ctx->configured)
         return NULL;
     if (data && len > 0 && submit_packet(ctx, sh, data, len) != 0)
         return NULL;
 
-    /* Cedar can defer an output picture after accepting an access unit. */
-    for (attempts = 0; attempts < 64; attempts++) {
-        result = DecodeVideoStream(ctx->decoder, !data, 0, 0, 0);
-        if (result == VDECODE_RESULT_NO_BITSTREAM)
-            break;
-        if (result != VDECODE_RESULT_FRAME_DECODED &&
-            result != VDECODE_RESULT_KEYFRAME_DECODED)
-            continue;
-        if (ValidPictureNum(ctx->decoder, 0) <= 0)
-            continue;
-        picture = RequestPicture(ctx->decoder, 0);
-        if (picture)
-            break;
-    }
-    if (attempts == 64 || !picture)
+    result = DecodeVideoStream(ctx->decoder, !data, 0, 0, 0);
+    if (result != VDECODE_RESULT_FRAME_DECODED &&
+        result != VDECODE_RESULT_KEYFRAME_DECODED)
+        return NULL;
+    picture = RequestPicture(ctx->decoder, 0);
+    if (!picture)
         return NULL;
 
     mpi = mpcodecs_get_image(sh, MP_IMGTYPE_EXPORT, MP_IMGFLAG_PRESERVE,

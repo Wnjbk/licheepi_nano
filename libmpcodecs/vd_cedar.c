@@ -27,6 +27,7 @@ typedef struct {
 
 /* One MPlayer instance owns the Cedar display queue. */
 static VideoDecoder *cedar_display_decoder;
+static int cedar_plugins_loaded;
 
 void vd_cedar_return_picture(void *picture)
 {
@@ -64,6 +65,11 @@ static int init(sh_video_t *sh)
     ctx->memops = MemAdapterGetOpsS();
     if (!ctx->memops || CdcMemOpen(ctx->memops) != 0)
         goto fail;
+
+    if (!cedar_plugins_loaded) {
+        AddVDPlugin();
+        cedar_plugins_loaded = 1;
+    }
 
     ctx->decoder = CreateVideoDecoder();
     if (!ctx->decoder)

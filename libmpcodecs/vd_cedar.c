@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "mp_msg.h"
@@ -312,6 +313,11 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
         return NULL;
 
     result = DecodeVideoStream(ctx->decoder, !data, 0, 0, 0);
+    if (data && result == VDECODE_RESULT_NO_BITSTREAM) {
+        /* Cedar consumes submitted frames in a separate SBM thread. */
+        usleep(1000);
+        result = DecodeVideoStream(ctx->decoder, 0, 0, 0, 0);
+    }
     if (ctx->debug_packets <= 8)
         mp_msg(MSGT_DECVIDEO, MSGL_INFO,
                "[cedar] decode result=%d valid=%d eos=%d\n", result,

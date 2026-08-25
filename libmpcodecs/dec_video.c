@@ -395,6 +395,8 @@ void *decode_video(sh_video_t *sh_video, unsigned char *start, int in_size,
     int delay;
     int got_picture = 1;
 
+    /* Video decoders that use external queues need the packet PTS now. */
+    sh_video->pts = pts;
     mpi = mpvdec->decode(sh_video, start, in_size, drop_frame);
 
     //------------------------ frame decoded. --------------------

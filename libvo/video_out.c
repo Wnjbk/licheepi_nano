@@ -113,6 +113,7 @@ extern const vo_functions_t video_out_3dfx;
 extern const vo_functions_t video_out_tdfxfb;
 extern const vo_functions_t video_out_s3fb;
 extern const vo_functions_t video_out_wii;
+extern const vo_functions_t video_out_cedar_drm;
 extern const vo_functions_t video_out_null;
 extern const vo_functions_t video_out_zr;
 extern const vo_functions_t video_out_zr2;
@@ -224,6 +225,7 @@ const vo_functions_t* const video_out_drivers[] =
         &video_out_ggi,
 #endif
 #ifdef CONFIG_FBDEV
+        &video_out_cedar_drm,
         &video_out_fbdev,
         &video_out_fbdev2,
 #endif

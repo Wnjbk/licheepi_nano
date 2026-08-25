@@ -43,7 +43,7 @@ CFLAGS_STACKREALIGN      =
 CFLAGS_SVGALIB_HELPER    = 
 
 EXTRALIBS          =  -Wl,--version-script,binary.ver -Wl,-z,noexecstack   -lncurses -lrt -lpng -lz -ljpeg -lgif -lasound -ldl -lpthread -lz -lmad -lmpg123 -lfaad -lpthread -ldl -rdynamic -lm  
-EXTRALIBS_MPLAYER  =  -lSDL
+EXTRALIBS_MPLAYER  =  -lSDL -ldrm -lMemAdapter -lvdecoder -lVE
 EXTRALIBS_MENCODER = 
 
 MP_MSG_LIBS =  -lncurses 

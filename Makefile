@@ -33,6 +33,7 @@ OS_FEATURE-$(STRSEP)                 += osdep/strsep.c
 OS_FEATURE-$(VSSCANF)                += osdep/vsscanf.c
 
 # conditional source declarations
+SRCS_COMMON                     += libmpcodecs/vd_cedar.c libvo/vo_cedar_drm.c
 SRCS_AUDIO_INPUT-$(ALSA)             += stream/ai_alsa.c
 SRCS_AUDIO_INPUT-$(OSS)              += stream/ai_oss.c
 SRCS_COMMON-$(AUDIO_INPUT)           += $(SRCS_AUDIO_INPUT-yes)

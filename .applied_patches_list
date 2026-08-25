@@ -1,0 +1,7 @@
+/home/wnk/LicheePi_Nano/buildroot-2018.02.11/package/mplayer/0001-disable-install-strip.patch
+/home/wnk/LicheePi_Nano/buildroot-2018.02.11/package/mplayer/0002-mpdemux-live555-async-interface.patch
+/home/wnk/LicheePi_Nano/buildroot-2018.02.11/package/mplayer/0003-configure-armv8.patch
+/home/wnk/LicheePi_Nano/buildroot-2018.02.11/package/mplayer/0004-configure-zlib.patch
+/home/wnk/LicheePi_Nano/buildroot-2018.02.11/package/mplayer/0005-tremor-ogg.patch
+/home/wnk/LicheePi_Nano/buildroot-2018.02.11/package/mplayer/0006-musl-ldt.patch
+/home/wnk/LicheePi_Nano/buildroot-2018.02.11/package/mplayer/0007-fixmmx.patch

@@ -74,15 +74,17 @@ static int init(sh_video_t *sh)
     info.eCodecFormat = VIDEO_CODEC_FORMAT_H264;
     info.nWidth = sh->disp_w;
     info.nHeight = sh->disp_h;
-    info.nFrameRate = sh->fps > 0 ? sh->fps * 1000 : 30000;
-    info.nFrameDuration = info.nFrameRate ? 1000000000 / info.nFrameRate : 33333;
+    info.nFrameRate = sh->fps > 0 ? sh->fps : 30;
+    info.nFrameDuration = 1000000 / info.nFrameRate;
     info.nAspectRatio = 1000;
     /* The first candidate accepts Annex-B H.264 access units. */
     info.pCodecSpecificData = NULL;
     info.nCodecSpecificDataLen = 0;
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
-    config.nDisplayHoldingFrameBufferNum = 2;
+    config.nDeInterlaceHoldingFrameBufferNum = 1;
+    config.nDisplayHoldingFrameBufferNum = 1;
+    config.nRotateHoldingFrameBufferNum = 0;
     config.nDecodeSmoothFrameBufferNum = 1;
     config.memops = ctx->memops;
     config.nVbvBufferSize = 2 * 1024 * 1024;

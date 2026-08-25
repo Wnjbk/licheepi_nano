@@ -23,6 +23,7 @@ typedef struct {
     VideoDecoder *decoder;
     struct ScMemOpsS *memops;
     int configured;
+    int64_t fallback_pts;
 } vd_cedar_ctx;
 
 /* One MPlayer instance owns the Cedar display queue. */
@@ -84,8 +85,9 @@ static int init(sh_video_t *sh)
     info.nFrameDuration = 1000000 / info.nFrameRate;
     info.nAspectRatio = 1000;
     /* The first candidate accepts Annex-B H.264 access units. */
-    info.pCodecSpecificData = NULL;
-    info.nCodecSpecificDataLen = 0;
+    info.pCodecSpecificData = (sh->bih && sh->bih->biSize > sizeof(*sh->bih)) ? (char *)(sh->bih + 1) : NULL;
+    info.nCodecSpecificDataLen = info.pCodecSpecificData ? sh->bih->biSize - sizeof(*sh->bih) : 0;
+    ctx->fallback_pts = 0;
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
     config.nDeInterlaceHoldingFrameBufferNum = 1;
@@ -129,7 +131,7 @@ static void uninit(sh_video_t *sh)
     sh->context = NULL;
 }
 
-static int submit_packet(vd_cedar_ctx *ctx, void *data, int len)
+static int submit_packet(vd_cedar_ctx *ctx, sh_video_t *sh, void *data, int len)
 {
     char *buf0 = NULL, *buf1 = NULL;
     int len0 = 0, len1 = 0;
@@ -147,7 +149,8 @@ static int submit_packet(vd_cedar_ctx *ctx, void *data, int len)
     memset(&packet, 0, sizeof(packet));
     packet.pData = buf0;
     packet.nLength = len;
-    packet.nPts = -1;
+    packet.nPts = sh->pts >= 0 ? (int64_t)(sh->pts * 1000000.0) : ctx->fallback_pts;
+    ctx->fallback_pts = packet.nPts + (sh->fps > 0 ? (int64_t)(1000000.0 / sh->fps) : 33333);
     packet.nPcr = -1;
     packet.bIsFirstPart = 1;
     packet.bIsLastPart = 1;
@@ -163,7 +166,7 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
 
     if (!ctx || !ctx->configured)
         return NULL;
-    if (data && len > 0 && submit_packet(ctx, data, len) != 0)
+    if (data && len > 0 && submit_packet(ctx, sh, data, len) != 0)
         return NULL;
 
     result = DecodeVideoStream(ctx->decoder, !data, 0, 0, 0);

@@ -143,8 +143,8 @@ static int init(sh_video_t *sh)
     info.eCodecFormat = VIDEO_CODEC_FORMAT_H264;
     info.nWidth = sh->disp_w;
     info.nHeight = sh->disp_h;
-    info.nFrameRate = sh->fps > 0 ? sh->fps : 30;
-    info.nFrameDuration = 1000000 / info.nFrameRate;
+    info.nFrameRate = (sh->fps > 0 ? sh->fps : 30) * 1000;
+    info.nFrameDuration = 1000000 / (info.nFrameRate / 1000);
     info.nAspectRatio = 1000;
     /* The first candidate accepts Annex-B H.264 access units. */
     info.pCodecSpecificData = (sh->bih && sh->bih->biSize > sizeof(*sh->bih)) ? (char *)(sh->bih + 1) : NULL;

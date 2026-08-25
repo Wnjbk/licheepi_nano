@@ -25,6 +25,8 @@ typedef struct {
     struct ScMemOpsS *memops;
     int configured;
     int avcc_nal_length_size;
+    unsigned char *codec_data;
+    int codec_data_len;
     int64_t fallback_pts;
 } vd_cedar_ctx;
 
@@ -39,6 +41,64 @@ void vd_cedar_return_picture(void *picture)
 }
 
 LIBVD_EXTERN(cedar)
+
+static int avcc_codec_data(vd_cedar_ctx *ctx, const unsigned char *avcc, int len)
+{
+    const unsigned char *src = avcc + 5;
+    const unsigned char *end = avcc + len;
+    unsigned char *dst;
+    int i, count, total = 0;
+
+    if (len < 7 || avcc[0] != 1)
+        return -1;
+    count = *src++ & 31;
+    for (i = 0; i < count; i++) {
+        int n;
+        if (src + 2 > end)
+            return -1;
+        n = (src[0] << 8) | src[1];
+        src += 2;
+        if (n < 1 || src + n > end || total > INT_MAX - n - 4)
+            return -1;
+        total += n + 4;
+        src += n;
+    }
+    if (src >= end)
+        return -1;
+    count = *src++;
+    for (i = 0; i < count; i++) {
+        int n;
+        if (src + 2 > end)
+            return -1;
+        n = (src[0] << 8) | src[1];
+        src += 2;
+        if (n < 1 || src + n > end || total > INT_MAX - n - 4)
+            return -1;
+        total += n + 4;
+        src += n;
+    }
+    ctx->codec_data = malloc(total);
+    if (!ctx->codec_data)
+        return -1;
+    ctx->codec_data_len = total;
+    src = avcc + 5;
+    dst = ctx->codec_data;
+    count = *src++ & 31;
+    for (i = 0; i < count; i++) {
+        int n = (src[0] << 8) | src[1];
+        src += 2;
+        dst[0] = dst[1] = dst[2] = 0; dst[3] = 1; dst += 4;
+        memcpy(dst, src, n); dst += n; src += n;
+    }
+    count = *src++;
+    for (i = 0; i < count; i++) {
+        int n = (src[0] << 8) | src[1];
+        src += 2;
+        dst[0] = dst[1] = dst[2] = 0; dst[3] = 1; dst += 4;
+        memcpy(dst, src, n); dst += n; src += n;
+    }
+    return 0;
+}
 
 static int control(sh_video_t *sh, int cmd, void *arg, ...)
 {
@@ -93,6 +153,12 @@ static int init(sh_video_t *sh)
         ((unsigned char *)info.pCodecSpecificData)[0] == 1)
         ctx->avcc_nal_length_size =
             (((unsigned char *)info.pCodecSpecificData)[4] & 3) + 1;
+    if (ctx->avcc_nal_length_size &&
+        avcc_codec_data(ctx, (unsigned char *)info.pCodecSpecificData,
+                        info.nCodecSpecificDataLen) == 0) {
+        info.pCodecSpecificData = (char *)ctx->codec_data;
+        info.nCodecSpecificDataLen = ctx->codec_data_len;
+    }
     ctx->fallback_pts = 0;
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
@@ -117,6 +183,7 @@ fail:
         DestroyVideoDecoder(ctx->decoder);
     if (ctx->memops)
         CdcMemClose(ctx->memops);
+    free(ctx->codec_data);
     free(ctx);
     sh->context = NULL;
     return 0;
@@ -133,6 +200,7 @@ static void uninit(sh_video_t *sh)
         DestroyVideoDecoder(ctx->decoder);
     if (ctx->memops)
         CdcMemClose(ctx->memops);
+    free(ctx->codec_data);
     free(ctx);
     sh->context = NULL;
 }

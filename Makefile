@@ -1119,7 +1119,7 @@ dhahelperclean:
 # Regenerate the Cedar registry objects instead of reusing a stale checkout.
 cedar-relink:
 	rm -f libmpcodecs/vd.o libmpcodecs/vd_cedar.o \
-		libvo/video_out.o libvo/vo_cedar_drm.o \
+		libvo/video_out.o libvo/vo_cedar_drm.o codecs.conf.h \
 		mplayer
 	$(MAKE) mplayer
 

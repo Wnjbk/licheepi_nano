@@ -1112,9 +1112,16 @@ dhahelperclean:
 
 -include $(DEP_FILES) $(DRIVER_DEP_FILES) $(TESTS_DEP_FILES) $(TOOLS_DEP_FILES) $(DHAHELPER_DEP_FILES)
 
-.PHONY: all doxygen *install* *tools drivers dhahelper*
+.PHONY: all doxygen *install* *tools drivers dhahelper* cedar-relink
 .PHONY: checkheaders *clean tests check_checksums fatetest checkhelp
 .PHONY: doc html-chunked* html-single* xmllint*
+
+# Regenerate the Cedar registry objects instead of reusing a stale checkout.
+cedar-relink:
+	rm -f libmpcodecs/vd.o libmpcodecs/vd_cedar.o \
+		libvo/video_out.o libvo/vo_cedar_drm.o \
+		codec-cfg.o codec-cfg.c codecs.conf.h mplayer
+	$(MAKE) mplayer
 
 # Disable suffix rules.  Most of the builtin rules are suffix rules,
 # so this saves some time on slow systems.

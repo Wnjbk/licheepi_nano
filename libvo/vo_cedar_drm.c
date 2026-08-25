@@ -109,7 +109,7 @@ static int preinit(const char *arg)
         display_mode = DISPLAY_CROP;
     else
         return ENOSYS;
-    drm_fd = open("/dev/dri/card0", O_RDWR | O_CLOEXEC);
+    drm_fd = open("/dev/dri/card0", O_RDWR);
     if (drm_fd < 0)
         return 1;
     if (drmIoctl(drm_fd, DRM_IOCTL_SRGN_RESET_FB_CACHE, NULL) < 0) {

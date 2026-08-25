@@ -162,10 +162,10 @@ static int init(sh_video_t *sh)
     ctx->fallback_pts = 0;
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
-    config.nDeInterlaceHoldingFrameBufferNum = 4;
-    config.nDisplayHoldingFrameBufferNum = 4;
-    config.nRotateHoldingFrameBufferNum = 4;
-    config.nDecodeSmoothFrameBufferNum = 4;
+    config.nDeInterlaceHoldingFrameBufferNum = 1;
+    config.nDisplayHoldingFrameBufferNum = 1;
+    config.nRotateHoldingFrameBufferNum = 0;
+    config.nDecodeSmoothFrameBufferNum = 1;
     config.memops = ctx->memops;
     config.nVbvBufferSize = 2 * 1024 * 1024;
 

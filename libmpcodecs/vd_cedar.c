@@ -28,7 +28,6 @@ typedef struct {
     int avcc_nal_length_size;
     unsigned char *codec_data;
     int codec_data_len;
-    int debug_packets;
     int64_t fallback_pts;
 } vd_cedar_ctx;
 
@@ -285,12 +284,6 @@ static int submit_packet(vd_cedar_ctx *ctx, sh_video_t *sh, void *data, int len)
     packet.nPcr = -1;
     packet.bIsFirstPart = 1;
     packet.bIsLastPart = 1;
-    if (ctx->debug_packets < 8)
-        mp_msg(MSGT_DECVIDEO, MSGL_INFO,
-               "[cedar] submit %d len=%d pts=%lld avcc=%d\n",
-               ctx->debug_packets, stream_len, (long long)packet.nPts,
-               ctx->avcc_nal_length_size);
-    ctx->debug_packets++;
     return SubmitVideoStreamData(ctx->decoder, &packet, 0);
 
 invalid_avcc:
@@ -318,10 +311,6 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
         usleep(1000);
         result = DecodeVideoStream(ctx->decoder, 0, 0, 0, 0);
     }
-    if (ctx->debug_packets <= 8)
-        mp_msg(MSGT_DECVIDEO, MSGL_INFO,
-               "[cedar] decode result=%d valid=%d eos=%d\n", result,
-               ValidPictureNum(ctx->decoder, 0), !data);
     if (result != VDECODE_RESULT_FRAME_DECODED &&
         result != VDECODE_RESULT_KEYFRAME_DECODED)
         return NULL;

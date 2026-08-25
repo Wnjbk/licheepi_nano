@@ -21,7 +21,7 @@ static const vd_info_t info = {
 
 typedef struct {
     VideoDecoder *decoder;
-    ScMemOpsS *memops;
+    struct ScMemOpsS *memops;
     int configured;
 } vd_cedar_ctx;
 
@@ -77,8 +77,9 @@ static int init(sh_video_t *sh)
     info.nFrameRate = sh->fps > 0 ? sh->fps * 1000 : 30000;
     info.nFrameDuration = info.nFrameRate ? 1000000000 / info.nFrameRate : 33333;
     info.nAspectRatio = 1000;
-    info.pCodecSpecificData = sh->codecdata;
-    info.nCodecSpecificDataLen = sh->codecdata_len;
+    /* The first candidate accepts Annex-B H.264 access units. */
+    info.pCodecSpecificData = NULL;
+    info.nCodecSpecificDataLen = 0;
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
     config.nDisplayHoldingFrameBufferNum = 2;

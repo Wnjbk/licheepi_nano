@@ -21,6 +21,8 @@
 
 include config.mak
 
+CFLAGS += -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include/drm
+
 ###### variable declarations #######
 
 # local fallbacks for missing operating system features

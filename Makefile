@@ -442,7 +442,6 @@ SRCS_COMMON = asxparser.c                       \
               $(OS_FEATURE-no)
 
 # MPlayer
-SRCS_MPLAYER                 += libmpcodecs/vd_cedar.c libvo/vo_cedar_drm.c
 SRCS_MPLAYER-$(3DFX)         += libvo/vo_3dfx.c
 SRCS_MPLAYER-$(AA)           += libvo/vo_aa.c
 SRCS_MPLAYER-$(ALSA)         += libao2/ao_alsa.c
@@ -614,6 +613,8 @@ SRCS_MPLAYER = command.c                \
                libvo/vo_null.c          \
                sub/spuenc.c             \
                $(SRCS_MPLAYER-yes)
+
+SRCS_MPLAYER += libmpcodecs/vd_cedar.c libvo/vo_cedar_drm.c
 
 #MEncoder
 SRCS_MENCODER-$(FAAC)             += libmpcodecs/ae_faac.c

@@ -1,6 +1,7 @@
 /* Cedar H.264 decoder adapter for the F1C200S DRM video output. */
 
 #include <stdint.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -23,6 +24,7 @@ typedef struct {
     VideoDecoder *decoder;
     struct ScMemOpsS *memops;
     int configured;
+    int avcc_nal_length_size;
     int64_t fallback_pts;
 } vd_cedar_ctx;
 
@@ -87,6 +89,10 @@ static int init(sh_video_t *sh)
     /* The first candidate accepts Annex-B H.264 access units. */
     info.pCodecSpecificData = (sh->bih && sh->bih->biSize > sizeof(*sh->bih)) ? (char *)(sh->bih + 1) : NULL;
     info.nCodecSpecificDataLen = info.pCodecSpecificData ? sh->bih->biSize - sizeof(*sh->bih) : 0;
+    if (info.nCodecSpecificDataLen >= 5 &&
+        ((unsigned char *)info.pCodecSpecificData)[0] == 1)
+        ctx->avcc_nal_length_size =
+            (((unsigned char *)info.pCodecSpecificData)[4] & 3) + 1;
     ctx->fallback_pts = 0;
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
@@ -133,28 +139,89 @@ static void uninit(sh_video_t *sh)
 
 static int submit_packet(vd_cedar_ctx *ctx, sh_video_t *sh, void *data, int len)
 {
+    const unsigned char *input = data;
+    const unsigned char *stream = input;
+    unsigned char *annexb = NULL;
     char *buf0 = NULL, *buf1 = NULL;
-    int len0 = 0, len1 = 0;
+    int len0 = 0, len1 = 0, stream_len = len;
     VideoStreamDataInfo packet;
 
-    if (RequestVideoStreamBuffer(ctx->decoder, len, &buf0, &len0,
-                                 &buf1, &len1, 0) != 0 || len0 + len1 < len)
-        return -1;
-    if (len <= len0)
-        memcpy(buf0, data, len);
-    else {
-        memcpy(buf0, data, len0);
-        memcpy(buf1, (char *)data + len0, len - len0);
+    if (ctx->avcc_nal_length_size) {
+        const unsigned char *src = input;
+        unsigned char *dst;
+        int remaining = len;
+        int converted_len = 0;
+
+        while (remaining > 0) {
+            unsigned int nal_len = 0;
+            int i;
+            if (remaining < ctx->avcc_nal_length_size)
+                goto invalid_avcc;
+            for (i = 0; i < ctx->avcc_nal_length_size; i++)
+                nal_len = (nal_len << 8) | src[i];
+            src += ctx->avcc_nal_length_size;
+            remaining -= ctx->avcc_nal_length_size;
+            if (nal_len > (unsigned int)remaining ||
+                nal_len > (unsigned int)(INT_MAX - converted_len - 4))
+                goto invalid_avcc;
+            converted_len += 4 + nal_len;
+            src += nal_len;
+            remaining -= nal_len;
+        }
+
+        annexb = malloc(converted_len);
+        if (!annexb)
+            return -1;
+        src = input;
+        dst = annexb;
+        remaining = len;
+        while (remaining > 0) {
+            unsigned int nal_len = 0;
+            int i;
+            for (i = 0; i < ctx->avcc_nal_length_size; i++)
+                nal_len = (nal_len << 8) | src[i];
+            src += ctx->avcc_nal_length_size;
+            remaining -= ctx->avcc_nal_length_size;
+            dst[0] = 0;
+            dst[1] = 0;
+            dst[2] = 0;
+            dst[3] = 1;
+            dst += 4;
+            memcpy(dst, src, nal_len);
+            dst += nal_len;
+            src += nal_len;
+            remaining -= nal_len;
+        }
+        stream = annexb;
+        stream_len = converted_len;
     }
+
+    if (RequestVideoStreamBuffer(ctx->decoder, stream_len, &buf0, &len0,
+                                 &buf1, &len1, 0) != 0 ||
+        len0 + len1 < stream_len)
+        goto fail;
+    if (stream_len <= len0)
+        memcpy(buf0, stream, stream_len);
+    else {
+        memcpy(buf0, stream, len0);
+        memcpy(buf1, stream + len0, stream_len - len0);
+    }
+    free(annexb);
     memset(&packet, 0, sizeof(packet));
     packet.pData = buf0;
-    packet.nLength = len;
+    packet.nLength = stream_len;
     packet.nPts = sh->pts >= 0 ? (int64_t)(sh->pts * 1000000.0) : ctx->fallback_pts;
     ctx->fallback_pts = packet.nPts + (sh->fps > 0 ? (int64_t)(1000000.0 / sh->fps) : 33333);
     packet.nPcr = -1;
     packet.bIsFirstPart = 1;
     packet.bIsLastPart = 1;
     return SubmitVideoStreamData(ctx->decoder, &packet, 0);
+
+invalid_avcc:
+    mp_msg(MSGT_DECVIDEO, MSGL_ERR, "[cedar] invalid AVCC packet\n");
+fail:
+    free(annexb);
+    return -1;
 }
 
 static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)

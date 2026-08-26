@@ -25,6 +25,7 @@ extern void vd_cedar_return_picture(void *picture);
 #define DRM_SRGN_MOUNT_FB_YUV 0x01
 #define DRM_SRGN_SET_YUV_VIEW 0x04
 #define DRM_SRGN_SET_YUV_CENTER_CROP_VIEW 0x05
+#define DRM_SRGN_SET_YUV_PITCH 0x06
 #define CEDAR_PHYS_MARKER 0x53475250U
 
 struct srgn_commit_data {
@@ -161,7 +162,7 @@ static int config(uint32_t width, uint32_t height, uint32_t d_width,
 
 static int control(uint32_t request, void *data)
 {
-    struct srgn_commit_data mount;
+    struct srgn_commit_data commands[2];
     struct srgn_commit commit;
     mp_image_t *mpi;
     if (request == VOCTRL_QUERY_FORMAT)
@@ -171,14 +172,17 @@ static int control(uint32_t request, void *data)
     mpi = data;
     if (!mpi || !mpi->priv)
         return VO_FALSE;
-    memset(&mount, 0, sizeof(mount));
-    mount.layer_id = 0;
-    mount.type = DRM_SRGN_MOUNT_FB_YUV;
-    mount.arg0 = (uint32_t)(uintptr_t)mpi->planes[0];
-    mount.arg1 = (uint32_t)(uintptr_t)mpi->planes[1];
-    mount.arg2 = CEDAR_PHYS_MARKER;
-    commit.size = 1;
-    commit.data = (uint32_t)(uintptr_t)&mount;
+    memset(commands, 0, sizeof(commands));
+    commands[0].layer_id = 0;
+    commands[0].type = DRM_SRGN_SET_YUV_PITCH;
+    commands[0].arg0 = mpi->stride[0];
+    commands[1].layer_id = 0;
+    commands[1].type = DRM_SRGN_MOUNT_FB_YUV;
+    commands[1].arg0 = (uint32_t)(uintptr_t)mpi->planes[0];
+    commands[1].arg1 = (uint32_t)(uintptr_t)mpi->planes[1];
+    commands[1].arg2 = CEDAR_PHYS_MARKER;
+    commit.size = 2;
+    commit.data = (uint32_t)(uintptr_t)commands;
     if (drmIoctl(drm_fd, DRM_IOCTL_SRGN_ATOMIC_COMMIT, &commit) < 0)
         return VO_FALSE;
     if (displayed_picture)

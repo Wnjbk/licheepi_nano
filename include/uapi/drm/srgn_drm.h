@@ -33,6 +33,9 @@
 // arg1: crop_h << 16 | crop_w, centered tiled source crop.
 // arg2: out_h << 16 | out_w, frontend output/backend layer size at coord 0,0.
 #define DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_YUV_CENTER_CROP_VIEW 0x05
+// arg0: decoded MB32 Y/UV line pitch in pixels. This is distinct from the
+// visible source width for streams whose decoder buffers include padding.
+#define DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_YUV_PITCH 0x06
 
 
 #define DRM_IOCTL_SRGN_ATOMIC_COMMIT DRM_IOW(DRM_COMMAND_BASE + DRM_SRGN_ATOMIC_COMMIT, struct drm_srgn_atomic_commit)

@@ -187,6 +187,7 @@ static int srgn_atomic_commit_mount_fb_normal(struct sun4i_backend *backend, str
 static bool srgn_yuv_crop_enabled;
 static u32 srgn_yuv_crop_y_offset;
 static u32 srgn_yuv_crop_uv_offset;
+static u32 srgn_yuv_pitch;
 
 static u32 srgn_mb32_offset(u32 pitch, u32 x, u32 y)
 {
@@ -224,6 +225,13 @@ static int srgn_atomic_commit_mount_fb_yuv(struct sun4i_frontend *frontend, stru
 	if (srgn_yuv_crop_enabled) {
 		phys_addr_y += srgn_yuv_crop_y_offset;
 		phys_addr_uv += srgn_yuv_crop_uv_offset;
+	}
+
+	if (srgn_yuv_pitch) {
+		regmap_write(frontend->regs, SUN4I_FRONTEND_LINESTRD0_REG,
+			SUN4I_FRONTEND_LINESTRD_TILED(srgn_yuv_pitch));
+		regmap_write(frontend->regs, SUN4I_FRONTEND_LINESTRD1_REG,
+			SUN4I_FRONTEND_LINESTRD_TILED(srgn_yuv_pitch));
 	}
 
 	phys_addr = phys_addr_y;
@@ -268,6 +276,7 @@ static int srgn_atomic_commit_mount_set_yuv_view(struct sun4i_frontend *frontend
 	struct sun4i_backend *backend, struct drm_srgn_atomic_commit_data *data)
 {
 	srgn_yuv_crop_enabled = false;
+	srgn_yuv_pitch = 0;
 	u32 layer = data->layer_id;
 	u32 src_w = data->arg0 & 0xffff;
 	u32 src_h = (data->arg0 >> 16) & 0xffff;
@@ -365,10 +374,25 @@ static int srgn_atomic_commit_mount_set_yuv_view(struct sun4i_frontend *frontend
 	return 0;
 }
 
+static int srgn_atomic_commit_mount_set_yuv_pitch(
+	struct drm_srgn_atomic_commit_data *data)
+{
+	u32 pitch = data->arg0;
+
+	if (!pitch || pitch > 4096 || (pitch & 1)) {
+		printk(KERN_ERR "srgn: invalid yuv pitch %u\n", pitch);
+		return -EINVAL;
+	}
+
+	srgn_yuv_pitch = pitch;
+	return 0;
+}
+
 
 static int srgn_atomic_commit_mount_set_yuv_center_crop_view(struct sun4i_frontend *frontend,
 	struct sun4i_backend *backend, struct drm_srgn_atomic_commit_data *data)
 {
+	srgn_yuv_pitch = 0;
 	u32 layer = data->layer_id;
 	u32 full_w = data->arg0 & 0xffff;
 	u32 full_h = (data->arg0 >> 16) & 0xffff;
@@ -545,6 +569,9 @@ int srgn_atomic_commit(struct drm_device *drm, void *data, struct drm_file *file
 				break;
 			case DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_YUV_CENTER_CROP_VIEW:
 				ret = srgn_atomic_commit_mount_set_yuv_center_crop_view(frontend, backend, arg);
+				break;
+			case DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_YUV_PITCH:
+				ret = srgn_atomic_commit_mount_set_yuv_pitch(arg);
 				break;
 			default:
 				ret = -EINVAL;

@@ -1,0 +1,36 @@
+#!/bin/sh
+
+load_sunxi() {
+    modprobe sunxi 2>/dev/null && return 0
+
+    for m in /lib/modules/*/kernel/drivers/usb/musb/sunxi.ko /lib/modules/*/sunxi.ko
+    do
+        [ -f "$m" ] || continue
+        insmod "$m" 2>/dev/null && return 0
+    done
+    return 1
+}
+
+set_musb_dma() {
+    [ -w /sys/module/musb_hdrc/parameters/use_dma ] || return 0
+
+    cur="$(cat /sys/module/musb_hdrc/parameters/use_dma 2>/dev/null)"
+    if [ "$cur" = "Y" ]; then
+        return 0
+    fi
+
+    echo Y > /sys/module/musb_hdrc/parameters/use_dma 2>/dev/null || return 1
+    return 0
+}
+
+case "$1" in
+    start|restart)
+        load_sunxi
+        set_musb_dma
+        ;;
+    stop)
+        ;;
+    *)
+        exit 0
+        ;;
+esac

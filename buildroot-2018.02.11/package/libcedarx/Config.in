@@ -1,0 +1,9 @@
+config BR2_PACKAGE_LIBCEDARX
+	depends on BR2_PACKAGE_LIBCEDARC
+	depends on BR2_PACKAGE_OPENSSL
+	bool "libcedarx"
+	help
+		Allwinner CedarX is a middware to process multimedia content.
+
+comment "libcedarx needs libcedarc"
+	depends on !BR2_PACKAGE_LIBCEDARC

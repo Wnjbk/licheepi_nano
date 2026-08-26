@@ -1,0 +1,18 @@
+defaults.bluealsa.service "org.bluealsa"
+defaults.bluealsa.device "@BT_DEVICE@"
+defaults.bluealsa.profile "a2dp"
+defaults.bluealsa.delay 20000
+
+pcm.!default {
+    type plug
+    slave.pcm {
+        type bluealsa
+        device "@BT_DEVICE@"
+        profile "a2dp"
+        delay 20000
+    }
+}
+
+ctl.!default {
+    type bluealsa
+}

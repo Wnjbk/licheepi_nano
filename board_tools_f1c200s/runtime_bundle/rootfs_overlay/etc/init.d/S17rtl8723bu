@@ -1,0 +1,58 @@
+#!/bin/sh
+
+USB8723_OPTS="rtw_power_mgnt=0 rtw_ips_mode=0 rtw_smart_ps=0 rtw_low_power=0 rtw_enusbss=0 rtw_btcoex_enable=1 rtw_ht_enable=1 rtw_bw_mode=1 rtw_wmm_enable=1 rtw_ampdu_enable=1 rtw_usb_rxagg_mode=1 rtw_wifi_spec=0 rtw_channel_plan=0x7F rtw_antdiv_cfg=0 rtw_ant_num=1 rtw_adaptivity_en=0"
+
+module_loaded() {
+    mod="$1"
+    grep -q "^$mod " /proc/modules 2>/dev/null
+}
+
+usb_has_8723() {
+    lsusb 2>/dev/null | grep -iq '0bda:b720'
+}
+
+wait_usb_8723() {
+    i=0
+    while [ "$i" -lt 30 ]; do
+        usb_has_8723 && return 0
+        sleep 0.2
+        i=$((i + 1))
+    done
+    return 1
+}
+
+have_iface() {
+    [ -d /sys/class/net/wlan0 ]
+}
+
+load_one() {
+    module_loaded 8723bu && return 0
+    modprobe 8723bu $USB8723_OPTS 2>/dev/null || \
+        /sbin/insmod /lib/modules/*/extra/8723bu.ko $USB8723_OPTS 2>/dev/null || return 1
+
+    i=0
+    while [ "$i" -lt 10 ]; do
+        if have_iface; then
+            echo "[wifi-mod] loaded 8723bu"
+            return 0
+        fi
+        sleep 0.2
+        i=$((i + 1))
+    done
+    return 1
+}
+
+case "$1" in
+  start|restart)
+    wait_usb_8723 || true
+    sleep 0.2
+    load_one || true
+    true
+    ;;
+  stop)
+    true
+    ;;
+  *)
+    exit 0
+    ;;
+esac

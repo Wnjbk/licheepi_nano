@@ -1,0 +1,180 @@
+#!/bin/sh
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+LOG=/tmp/rom_partition.log
+DISK=${ROMS_DISK:-/dev/mmcblk0}
+PART=${ROMS_PART:-/dev/mmcblk0p3}
+MOUNTPOINT=${ROMS_MOUNTPOINT:-/root/roms}
+MIN_SECTORS=${ROMS_MIN_SECTORS:-131072}
+
+log() {
+    echo "[roms] $*" | tee -a "$LOG"
+}
+
+is_mounted() {
+    grep -q " $MOUNTPOINT " /proc/mounts
+}
+
+wait_for_node() {
+    node=$1
+    timeout=${2:-8}
+    i=0
+    while [ $i -lt "$timeout" ]; do
+        [ -b "$node" ] && return 0
+        mdev -s 2>/dev/null || true
+        sleep 1
+        i=$((i + 1))
+    done
+    [ -b "$node" ]
+}
+
+mount_roms() {
+    mkdir -p "$MOUNTPOINT"
+
+    if is_mounted; then
+        log "$MOUNTPOINT already mounted"
+        return 0
+    fi
+
+    if mount -t vfat -o rw,noatime,uid=0,gid=0,fmask=0000,dmask=0000,shortname=mixed,utf8=1 "$PART" "$MOUNTPOINT" 2>>"$LOG"; then
+        log "mounted FAT ROM partition $PART on $MOUNTPOINT"
+        create_dirs
+        return 0
+    fi
+
+    if mount -t auto -o rw,noatime "$PART" "$MOUNTPOINT" 2>>"$LOG"; then
+        log "mounted ROM partition $PART on $MOUNTPOINT with auto fs"
+        create_dirs
+        return 0
+    fi
+
+    log "failed to mount $PART on $MOUNTPOINT"
+    return 1
+}
+
+create_dirs() {
+    mkdir -p \
+        "$MOUNTPOINT/gba" \
+        "$MOUNTPOINT/gb" \
+        "$MOUNTPOINT/md" \
+        "$MOUNTPOINT/sfc" \
+        "$MOUNTPOINT/ps1" \
+        "$MOUNTPOINT/ons" \
+        "$MOUNTPOINT/video" \
+        "$MOUNTPOINT/music" \
+        "$MOUNTPOINT/.images"
+}
+
+make_partition() {
+    if [ ! -b "$DISK" ]; then
+        log "disk not found: $DISK"
+        return 1
+    fi
+
+    if ! command -v fdisk >/dev/null 2>&1; then
+        log "fdisk not found; cannot create ROM partition"
+        return 1
+    fi
+
+    total=$(cat /sys/class/block/mmcblk0/size 2>/dev/null || cat /sys/block/mmcblk0/size 2>/dev/null || echo 0)
+    p2_start=$(cat /sys/class/block/mmcblk0p2/start 2>/dev/null || echo 0)
+    p2_size=$(cat /sys/class/block/mmcblk0p2/size 2>/dev/null || echo 0)
+    start=$((p2_start + p2_size))
+
+    if [ -z "$total" ] || [ "$total" -le 0 ] || [ "$start" -le 0 ]; then
+        log "cannot read disk or p2 size"
+        return 1
+    fi
+
+    free=$((total - start))
+    if [ "$free" -lt "$MIN_SECTORS" ]; then
+        log "not enough free card space for ROM partition: free_sectors=$free"
+        return 1
+    fi
+
+    log "creating third partition on $DISK: start_sector=$start end=card_end"
+    {
+        echo u
+        echo n
+        echo p
+        echo 3
+        echo "$start"
+        echo
+        echo t
+        echo 3
+        echo c
+        echo w
+    } | fdisk "$DISK" >>"$LOG" 2>&1
+    fdisk_rc=$?
+    if [ "$fdisk_rc" -ne 0 ]; then
+        if grep -q "rereading partition table failed" "$LOG"; then
+            log "fdisk wrote partition table; reboot may be required before $PART appears"
+        else
+            log "fdisk failed: rc=$fdisk_rc"
+            return 1
+        fi
+    fi
+
+    sync
+    partprobe "$DISK" >/dev/null 2>&1 || true
+    blockdev --rereadpt "$DISK" >/dev/null 2>&1 || true
+    mdev -s 2>/dev/null || true
+    wait_for_node "$PART" 10
+}
+
+format_partition() {
+    mkfs=
+    for candidate in mkfs.vfat mkfs.fat mkdosfs; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            mkfs=$candidate
+            break
+        fi
+    done
+
+    if [ -z "$mkfs" ]; then
+        log "mkfs.vfat/mkfs.fat not found; cannot format $PART"
+        return 1
+    fi
+
+    log "formatting $PART as FAT32"
+    "$mkfs" -F 32 -n ROMS "$PART" >>"$LOG" 2>&1 || {
+        log "FAT32 format failed"
+        return 1
+    }
+    sync
+}
+
+start() {
+    : > "$LOG"
+    mkdir -p "$MOUNTPOINT"
+
+    if [ -b "$PART" ]; then
+        log "$PART exists; mounting only"
+        mount_roms
+        return $?
+    fi
+
+    log "$PART does not exist; creating FAT32 ROM partition"
+    make_partition || return 0
+    wait_for_node "$PART" 10 || {
+        log "$PART still missing after partition creation; reboot may be required"
+        return 0
+    }
+    format_partition || return 0
+    mount_roms || return 0
+}
+
+stop() {
+    if is_mounted; then
+        umount "$MOUNTPOINT" 2>>"$LOG" || true
+    fi
+}
+
+case "$1" in
+    start|"") start ;;
+    stop) stop ;;
+    restart|reload) stop; start ;;
+    *) echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac
+
+exit 0

@@ -1,0 +1,13 @@
+source "package/libnl/Config.in"
+source "package/hostapd/Config.in"
+
+config BR2_PACKAGE_RTL8723DS
+	bool "rtl8723ds"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Realtek rtl8723ds SDIO wifi driver.
+
+	  Source is provided from the local third_party tree.
+
+comment "rtl8723ds needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL

@@ -1,0 +1,174 @@
+#!/bin/sh
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+IFACE="${IFACE:-wlan0}"
+CONFIG_FILE="/etc/default/usb-wifi"
+MODE="static"
+ADDR="10.0.0.107"
+MASK="255.255.255.0"
+GW="10.0.0.1"
+DNS1="223.5.5.5"
+DNS2="114.114.114.114"
+COUNTRY="CN"
+WAIT_IFACE_TICKS=40
+WAIT_WPA_SEC=8
+LOCK_DIR="/tmp/usb-wifi.lock"
+
+[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+[ "$IFACE" = "auto" ] && IFACE="wlan0"
+
+log() {
+    echo "[usb-wifi] $*"
+}
+
+have_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+iface_driver() {
+    readlink -f "/sys/class/net/$IFACE/device/driver/module" 2>/dev/null | sed 's#.*/##'
+}
+
+is_8723_iface() {
+    [ -d "/sys/class/net/$IFACE" ] || return 1
+    [ "$(iface_driver)" = "8723bu" ] || return 1
+}
+
+wait_iface() {
+    i=0
+    while ! is_8723_iface; do
+        [ "$i" -ge "$WAIT_IFACE_TICKS" ] && return 1
+        sleep 0.2
+        i=$((i + 1))
+    done
+    return 0
+}
+
+wpa_state() {
+    wpa_cli -i "$IFACE" status 2>/dev/null | sed -n 's/^wpa_state=//p' | tail -n1
+}
+
+wpa_completed() {
+    [ "$(wpa_state)" = "COMPLETED" ]
+}
+
+iface_has_addr() {
+    ifconfig "$IFACE" 2>/dev/null | grep -q "inet addr:$ADDR" && return 0
+    have_cmd ip && ip addr show "$IFACE" 2>/dev/null | grep -q "inet $ADDR/" && return 0
+    return 1
+}
+
+route_del_default() {
+    route del default 2>/dev/null || true
+    have_cmd ip && ip route del default 2>/dev/null || true
+}
+
+route_add_default() {
+    route add default gw "$GW" "$IFACE" 2>/dev/null || true
+    have_cmd ip && ip route replace default via "$GW" dev "$IFACE" 2>/dev/null || true
+}
+
+write_dns() {
+    rm -f /etc/resolv.conf
+    printf 'nameserver %s\nnameserver %s\n' "$DNS1" "$DNS2" > /etc/resolv.conf
+}
+
+set_static_ip() {
+    ifconfig "$IFACE" "$ADDR" netmask "$MASK" up
+    route_del_default
+    route_add_default
+    write_dns
+    log "static ip set: $ADDR gw $GW"
+}
+
+wait_wpa() {
+    i=0
+    while [ "$i" -lt "$WAIT_WPA_SEC" ]; do
+        wpa_completed && return 0
+        sleep 1
+        i=$((i + 1))
+    done
+    return 1
+}
+
+start_wpa() {
+    mkdir -p /var/run /var/run/wpa_supplicant
+    rfkill unblock all 2>/dev/null || true
+    ifconfig "$IFACE" up 2>/dev/null || true
+    iw reg set "$COUNTRY" 2>/dev/null || true
+    iwconfig "$IFACE" power off 2>/dev/null || true
+    iw dev "$IFACE" set power_save off 2>/dev/null || true
+
+    if pgrep wpa_supplicant >/dev/null 2>&1; then
+        wpa_cli -i "$IFACE" terminate >/dev/null 2>&1 || killall wpa_supplicant 2>/dev/null || true
+        sleep 0.2
+    fi
+
+    wpa_supplicant -B -D nl80211,wext -i "$IFACE" -c /etc/wpa_supplicant.conf
+}
+
+start() {
+    start_ts="$(date +%s 2>/dev/null || echo 0)"
+
+    if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+        if ps | grep -v grep | grep -q '[S]45usb-wifi'; then
+            log "already running, skip duplicate start"
+            return 0
+        fi
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+        mkdir "$LOCK_DIR" 2>/dev/null || {
+            log "lock busy, skip duplicate start"
+            return 0
+        }
+    fi
+    trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+
+    if ! wait_iface; then
+        log "no 8723bu wlan0 found, skip wifi setup"
+        return 0
+    fi
+
+    log "selected iface $IFACE (8723bu)"
+
+    if wpa_completed; then
+        if iface_has_addr; then
+            route_add_default
+            write_dns
+            log "already connected on $IFACE, skip reconnect"
+        elif [ "$MODE" = "static" ]; then
+            set_static_ip
+        fi
+        return 0
+    fi
+
+    start_wpa
+    if wait_wpa; then
+        log "link ready"
+    else
+        log "wpa timeout, keep interface up for debug"
+    fi
+
+    if [ "$MODE" = "static" ]; then
+        set_static_ip
+    else
+        udhcpc -i "$IFACE" -q -n -t 1 -T 2 2>/dev/null || true
+        log "dhcp requested on $IFACE"
+    fi
+
+    end_ts="$(date +%s 2>/dev/null || echo 0)"
+    [ "$start_ts" != 0 ] && [ "$end_ts" != 0 ] && log "wifi init finished in $((end_ts - start_ts))s"
+}
+
+stop() {
+    killall udhcpc 2>/dev/null || true
+    wpa_cli -i "$IFACE" terminate >/dev/null 2>&1 || killall wpa_supplicant 2>/dev/null || true
+    ifconfig "$IFACE" down 2>/dev/null || true
+}
+
+case "$1" in
+    start) start ;;
+    stop) stop ;;
+    restart) stop; start ;;
+    *) echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac

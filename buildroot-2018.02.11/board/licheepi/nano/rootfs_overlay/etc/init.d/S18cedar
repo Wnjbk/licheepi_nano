@@ -1,0 +1,14 @@
+#!/bin/sh
+
+case "$1" in
+    start|restart)
+        [ -x /root/load_cedar.sh ] && /root/load_cedar.sh || true
+        ;;
+    stop)
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+exit 0

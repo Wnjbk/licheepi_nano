@@ -1,0 +1,16 @@
+# Wi-Fi network mode: dhcp or static.
+# Default must stay DHCP so the board follows the current router/hotspot subnet.
+# Use static only for a fixed lab network, otherwise SSH will break when the PC
+# moves between different LANs.
+MODE="dhcp"
+
+# Keep empty by default. USB Wi-Fi should win when present; SPI ESP8089 is a
+# fallback only when no USB Wi-Fi adapter is detected.
+PREFERRED_DRIVER=""
+
+# Static fallback values. These are used only when MODE="static".
+ADDR="172.28.73.247"
+MASK="255.255.255.0"
+GW="172.28.73.171"
+DNS1="172.28.73.171"
+DNS2="223.5.5.5"

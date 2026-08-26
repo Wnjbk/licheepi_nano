@@ -1,0 +1,107 @@
+#!/bin/sh
+#
+# Starts dropbear sshd.
+#
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+PIDFILE=/var/run/dropbear.pid
+LOGFILE=/tmp/dropbear.start.log
+PORT=${DROPBEAR_PORT:-22}
+
+# Allow a few customizations from a config file
+test -r /etc/default/dropbear && . /etc/default/dropbear
+
+key_args() {
+	args=""
+	[ -s /etc/dropbear/dropbear_rsa_host_key ] && args="$args -r /etc/dropbear/dropbear_rsa_host_key"
+	[ -s /etc/dropbear/dropbear_ecdsa_host_key ] && args="$args -r /etc/dropbear/dropbear_ecdsa_host_key"
+	[ -s /etc/dropbear/dropbear_dss_host_key ] && args="$args -r /etc/dropbear/dropbear_dss_host_key"
+	if [ -z "$args" ]; then
+		args="-R"
+	fi
+	echo "$args"
+}
+
+listening_22() {
+	cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | grep -qi ':0016[[:space:]]'
+}
+
+start() {
+	mkdir -p /etc/dropbear /var/run
+	printf "Starting dropbear sshd: "
+	umask 077
+
+	if listening_22; then
+		echo "OK"
+		return 0
+	fi
+
+	# Remove stale pidfiles and any half-started daemon before binding port 22.
+	if [ -s "$PIDFILE" ]; then
+		oldpid=$(cat "$PIDFILE" 2>/dev/null)
+		[ -n "$oldpid" ] && kill "$oldpid" 2>/dev/null || true
+		sleep 1
+	fi
+	killall dropbear 2>/dev/null || true
+	rm -f "$PIDFILE"
+
+	KEY_ARGS=$(key_args)
+	: >"$LOGFILE"
+	/usr/sbin/dropbear $KEY_ARGS -p "$PORT" -P "$PIDFILE" -E $DROPBEAR_ARGS >>"$LOGFILE" 2>&1 &
+
+	i=0
+	while [ "$i" -lt 8 ]; do
+		if listening_22; then
+			echo "OK"
+			return 0
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+
+	echo "FAIL"
+	cat "$LOGFILE" 2>/dev/null
+	return 1
+}
+
+stop() {
+	printf "Stopping dropbear sshd: "
+	if [ -s "$PIDFILE" ]; then
+		pid=$(cat "$PIDFILE" 2>/dev/null)
+		[ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+	fi
+	killall dropbear 2>/dev/null || true
+	rm -f "$PIDFILE"
+	echo "OK"
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart|reload)
+	restart
+	;;
+  status)
+	if listening_22; then
+		echo "dropbear listening on port $PORT"
+		ps w | grep '[d]ropbear' || true
+		exit 0
+	fi
+	echo "dropbear not listening"
+	exit 1
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|status}"
+	exit 1
+esac
+
+exit $?

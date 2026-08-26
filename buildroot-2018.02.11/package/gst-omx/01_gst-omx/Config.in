@@ -1,0 +1,19 @@
+config BR2_PACKAGE_GST_OMX
+	bool "gst-omx"
+	depends on BR2_PACKAGE_GSTREAMER1
+	select BR2_PACKAGE_GST1_PLUGINS_BASE
+	help
+	  GStreamer OpenMAX IL plugin.
+	  Allows GStreamer to use OpenMAX IL decoders/encoders.
+
+	  https://gstreamer.freedesktop.org/
+
+if BR2_PACKAGE_GST_OMX
+
+config BR2_PACKAGE_GST_OMX_TARGET_GENERIC
+	bool "generic target"
+	default y
+	help
+	  Use generic OpenMAX IL target (compatible with Allwinner CedarX).
+
+endif

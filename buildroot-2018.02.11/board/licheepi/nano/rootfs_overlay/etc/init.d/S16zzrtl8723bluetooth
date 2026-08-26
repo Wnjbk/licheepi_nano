@@ -1,0 +1,46 @@
+#!/bin/sh
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+MODULE_DIR=/lib/modules/5.7.1/kernel/drivers/bluetooth
+LOG=/root/roms/rtl8723bluetooth_early_wait.log
+
+log() {
+    echo "[rtl8723bt] $*" | tee -a "$LOG"
+}
+
+case "${1:-start}" in
+start)
+    : > "$LOG"
+    for mod in btrtl btbcm btintel btusb; do
+        grep -q "^${mod} " /proc/modules 2>/dev/null && continue
+        [ -r "$MODULE_DIR/${mod}.ko" ] || exit 0
+        insmod "$MODULE_DIR/${mod}.ko" || exit 0
+    done
+
+    i=0
+    while [ "$i" -lt 20 ]; do
+        if dmesg | grep -q 'Bluetooth: hci0: RTL: fw version'; then
+            log "firmware ready after ${i}s"
+            exit 0
+        fi
+        if dmesg | grep -q 'HCI_OP_READ_LOCAL_VERSION failed'; then
+            log "firmware initialization failed; unloading Bluetooth"
+            rmmod btusb 2>/dev/null
+            rmmod btintel 2>/dev/null
+            rmmod btbcm 2>/dev/null
+            rmmod btrtl 2>/dev/null
+            exit 0
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
+
+    log "firmware initialization timed out; unloading Bluetooth"
+    rmmod btusb 2>/dev/null
+    rmmod btintel 2>/dev/null
+    rmmod btbcm 2>/dev/null
+    rmmod btrtl 2>/dev/null
+    ;;
+esac
+
+exit 0

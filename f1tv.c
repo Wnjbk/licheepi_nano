@@ -152,7 +152,7 @@ int main(int argc, char **argv)
             fprintf(stderr, "SDL init failed: %s\n", SDL_GetError());
             return 1;
         }
-        screen = SDL_SetVideoMode(0, 0, 16, SDL_SWSURFACE | SDL_FULLSCREEN);
+        screen = SDL_SetVideoMode(640, 480, 16, SDL_SWSURFACE | SDL_FULLSCREEN);
         if (screen == NULL) {
             fprintf(stderr, "SDL video failed: %s\n", SDL_GetError());
             SDL_Quit();

@@ -1,8 +1,16 @@
 # Public HLS candidates checked on 2026-08-26.
 # Each playlist returned HTTP 200, contained no EXT-X-KEY, and yielded a live
 # MPEG-TS segment. Board playback is still unverified.
+#
+# Fixed low-profile child playlists are used for adaptive sources. This keeps
+# MPlayer from selecting an unusable 720p/1080p rendition on F1C200S.
 
 VOA TV 360p|https://voa-ingest.akamaized.net/hls/live/2033878/tvmc08/playlist_0360.m3u8
 CGTN English 576p|https://hlspackager.akamaized.net/live/DB/CGTN_ENGLISH/HLS/CGTN_ENGLISH-avc1_400000=10000.m3u8
 CGTN Documentary 576p|https://hlspackager.akamaized.net/live/DB/CGTN_DOCUMENTARY/HLS/CGTN_DOCUMENTARY-avc1_400000=10000.m3u8
 Lanzhou News|https://liveplus.lzr.com.cn/xwzh/HD/live.m3u8
+Lanzhou Culture & Tourism|https://liveplus.lzr.com.cn/wlpd/HD/live.m3u8
+DW English 270p|https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/stream01/streamPlaylist.m3u8
+Tagesschau 24 270p|https://tagesschau.akamaized.net/hls/live/2020115/tagesschau/tagesschau_1/master-270p-828.m3u8
+ARD Das Erste 270p|https://daserste-live.ard-mcdn.de/daserste/live/hls/int/master270p700.m3u8
+CGTN Arabic 576p|https://hlspackager.akamaized.net/live/DB/CGTN_ARABIC/HLS/CGTN_ARABIC-avc1_400000=10000.m3u8

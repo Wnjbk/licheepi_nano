@@ -18,3 +18,8 @@ Player:      /root/candidates/mplayer_cedar_20260825/mplayer-cedar
 Controls: Up/Down and Enter, touch/mouse click, F5 reload, Esc exit.
 
 Use `F1TV_CHANNELS` and `F1TV_PLAYER` to override the channel list and player.
+
+`channels.official_20260826.txt` is a conservative, network-validated
+candidate list. It intentionally uses direct HLS URLs that have an attributable
+broadcaster/CDN origin and an unencrypted MPEG-TS segment. It is not a claim
+that every stream has passed the F1C200S Cedar playback test.

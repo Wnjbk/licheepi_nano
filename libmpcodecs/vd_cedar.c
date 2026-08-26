@@ -318,6 +318,10 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
     if (!picture)
         return NULL;
     mp_msg(MSGT_DECVIDEO, MSGL_INFO,
+           "[cedar] visible x=[%d,%d) y=[%d,%d)\\n",
+           picture->nLeftOffset, picture->nRightOffset,
+           picture->nTopOffset, picture->nBottomOffset);
+    mp_msg(MSGT_DECVIDEO, MSGL_INFO,
            "[cedar] frame %dx%d stride=%d y=%#lx cb=%#lx\\n",
            picture->nWidth, picture->nHeight, picture->nLineStride,
            (unsigned long)picture->phyYBufAddr,

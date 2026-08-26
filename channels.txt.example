@@ -1,0 +1,4 @@
+# One channel per line: display name|direct HTTP/HLS/media URL
+# Keep the first tests to H.264 + AAC streams.
+#
+# Example Channel|http://192.168.1.2:8080/channel.mp4

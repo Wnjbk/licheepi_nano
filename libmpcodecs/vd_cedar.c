@@ -166,9 +166,10 @@ static int init(sh_video_t *sh)
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
     config.nDeInterlaceHoldingFrameBufferNum = 1;
-    config.nDisplayHoldingFrameBufferNum = 1;
+    /* The display owns the previous picture until the next frame is mounted. */
+ config.nDisplayHoldingFrameBufferNum = 2;
     config.nRotateHoldingFrameBufferNum = 0;
-    config.nDecodeSmoothFrameBufferNum = 1;
+    config.nDecodeSmoothFrameBufferNum = 2;
     config.memops = ctx->memops;
     config.nVbvBufferSize = 2 * 1024 * 1024;
 

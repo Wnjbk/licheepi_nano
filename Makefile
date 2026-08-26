@@ -663,6 +663,14 @@ OBJS_MPLAYER                  += $(addsuffix .o, $(basename $(SRCS_MPLAYER)))
 OBJS_MPLAYER-$(PE_EXECUTABLE) += osdep/mplayer-rc.o
 OBJS_MPLAYER                  += $(OBJS_MPLAYER-yes)
 
+# The F1C200S Cedar decoder and DRM output are board-specific extensions.
+# Keep their target libraries in the build rules so reconfiguring FFmpeg does
+# not silently turn a Cedar-capable MPlayer into an unlinked binary.
+CEDAR_TARGET_LIBDIR ?= /home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib
+EXTRALIBS_MPLAYER += -L$(CEDAR_TARGET_LIBDIR) \
+	-Wl,-rpath-link,$(CEDAR_TARGET_LIBDIR) \
+	-ldrm -lMemAdapter -lvdecoder -lVE -lvideoengine -lcdc_base
+
 MENCODER_DEPS = $(OBJS_MENCODER) $(OBJS_COMMON) $(COMMON_LIBS)
 MPLAYER_DEPS  = $(OBJS_MPLAYER)  $(OBJS_COMMON) $(COMMON_LIBS)
 DEP_FILES     = $(SRCS_COMMON) $(SRCS_MPLAYER) $(SRCS_MENCODER)

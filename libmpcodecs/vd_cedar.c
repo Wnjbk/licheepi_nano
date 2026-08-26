@@ -29,6 +29,8 @@ typedef struct {
     unsigned char *codec_data;
     int codec_data_len;
     int64_t fallback_pts;
+    int64_t pts_base;
+    int have_pts_base;
 } vd_cedar_ctx;
 
 /* One MPlayer instance owns the Cedar display queue. */
@@ -214,6 +216,7 @@ static int submit_packet(vd_cedar_ctx *ctx, sh_video_t *sh, void *data, int len)
     char *buf0 = NULL, *buf1 = NULL;
     int len0 = 0, len1 = 0, stream_len = len;
     VideoStreamDataInfo packet;
+    int64_t input_pts;
 
     if (ctx->avcc_nal_length_size) {
         const unsigned char *src = input;
@@ -279,7 +282,15 @@ static int submit_packet(vd_cedar_ctx *ctx, sh_video_t *sh, void *data, int len)
     memset(&packet, 0, sizeof(packet));
     packet.pData = buf0;
     packet.nLength = stream_len;
-    packet.nPts = sh->pts >= 0 ? (int64_t)(sh->pts * 1000000.0) : ctx->fallback_pts;
+    input_pts = sh->pts >= 0 ? (int64_t)(sh->pts * 1000000.0) : ctx->fallback_pts;
+    if (!ctx->have_pts_base) {
+        ctx->pts_base = input_pts;
+        ctx->have_pts_base = 1;
+        mp_msg(MSGT_DECVIDEO, MSGL_INFO,
+               "[cedar] normalizing PTS base %lld us\\n",
+               (long long)ctx->pts_base);
+    }
+    packet.nPts = input_pts - ctx->pts_base;
     ctx->fallback_pts = packet.nPts + (sh->fps > 0 ? (int64_t)(1000000.0 / sh->fps) : 33333);
     packet.nPcr = -1;
     packet.bIsFirstPart = 1;

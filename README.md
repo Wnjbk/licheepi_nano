@@ -17,6 +17,9 @@ Player:      /root/candidates/mplayer_cedar_20260825/mplayer-cedar
 
 Controls: Up/Down and Enter, touch/mouse click, F5 reload, Esc exit.
 
+Set `F1TV_AUTOPLAY_INDEX` to a zero-based channel index to play that channel
+once immediately at startup. The launcher returns to the channel list when playback exits.
+
 Use `F1TV_CHANNELS` and `F1TV_PLAYER` to override the channel list and player.
 
 `channels.official_20260826.txt` is a conservative, network-validated

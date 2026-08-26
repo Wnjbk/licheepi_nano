@@ -139,16 +139,29 @@ static void play_channel(const struct channel *channel)
 int main(int argc, char **argv)
 {
     const char *channel_path = getenv("F1TV_CHANNELS");
+    const char *autoplay_text = getenv("F1TV_AUTOPLAY_INDEX");
     SDL_Surface *screen;
+    int autoplay_index = -1;
+    int autoplay_pending;
     int running = 1;
 
     if (channel_path == NULL || *channel_path == '\0')
         channel_path = argc > 1 ? argv[1] : "/root/roms/tv/channels.txt";
+    if (autoplay_text != NULL && *autoplay_text != '\0')
+        autoplay_index = atoi(autoplay_text);
+    autoplay_pending = autoplay_index >= 0;
 
     while (running) {
         SDL_Event event;
 
         (void)load_channels(channel_path);
+        if (autoplay_pending && autoplay_index < channel_count) {
+            selected = autoplay_index;
+            autoplay_pending = 0;
+            play_channel(&channels[selected]);
+            continue;
+        }
+        autoplay_pending = 0;
         if (SDL_Init(SDL_INIT_VIDEO) != 0) {
             fprintf(stderr, "SDL init failed: %s\n", SDL_GetError());
             return 1;

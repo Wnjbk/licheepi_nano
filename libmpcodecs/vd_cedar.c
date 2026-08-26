@@ -317,6 +317,11 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
     picture = RequestPicture(ctx->decoder, 0);
     if (!picture)
         return NULL;
+    mp_msg(MSGT_DECVIDEO, MSGL_INFO,
+           "[cedar] frame %dx%d stride=%d y=%#lx cb=%#lx\\n",
+           picture->nWidth, picture->nHeight, picture->nLineStride,
+           (unsigned long)picture->phyYBufAddr,
+           (unsigned long)picture->phyCBufAddr);
 
     mpi = mpcodecs_get_image(sh, MP_IMGTYPE_EXPORT, MP_IMGFLAG_PRESERVE,
                              picture->nWidth, picture->nHeight);

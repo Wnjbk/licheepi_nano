@@ -1,0 +1,11 @@
+# Mainland China direct HLS candidates checked on 2026-08-26.
+# Every listed URL returned a non-encrypted HLS playlist and a current MPEG-TS
+# media segment. F1C200S playback remains unverified.
+#
+# "Attribution pending" means the endpoint is public and directly playable,
+# but its CDN hostname is not the broadcaster's primary domain.
+
+Lanzhou News|https://liveplus.lzr.com.cn/xwzh/HD/live.m3u8
+Lanzhou Culture & Tourism|https://liveplus.lzr.com.cn/wlpd/HD/live.m3u8
+Heyuan Comprehensive|https://tmpstream.hyrtv.cn/xwzh/sd/live.m3u8
+Qinghai TV (attribution pending)|https://hls-qhmh.lanzhousobey.cn/qhmh/mhds.m3u8

@@ -125,7 +125,8 @@ static void play_channel(const struct channel *channel)
 
     pid = fork();
     if (pid == 0) {
-        execl(player, player, "-vc", "cedarh264", "-vo", "cedar_drm:fit",
+        execl(player, player, "-demuxer", "lavf", "-vc", "cedarh264",
+              "-vo", "cedar_drm:fit",
               channel->url, (char *)NULL);
         execl("/usr/bin/mplayer", "/usr/bin/mplayer", channel->url,
               (char *)NULL);

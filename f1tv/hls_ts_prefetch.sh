@@ -23,7 +23,7 @@ printf '%s\n' -1 > "$RUN/consumed"
 segurl() { n=$1; s=$(sed -n "$((n + 1))p" "$RUN/segments"); case "$s" in http://*) echo "$s";; *) echo "$BASE$s";; esac; }
 download() { n=$1; p="$RUN/$n.part"; f="$RUN/$n.ts"; wget -q -O "$p" "$(segurl "$n")" && test -s "$p" && mv "$p" "$f"; }
 downloader() { n=0; while [ "$n" -lt "$COUNT" ]; do c=$(cat "$RUN/consumed"); while [ "$n" -gt "$((c + PREFETCH))" ]; do sleep 1; c=$(cat "$RUN/consumed"); done; download "$n" || { echo "$n" > "$RUN/failed"; exit 1; }; n=$((n + 1)); done; }
-writer() { n=0; while [ "$n" -lt "$COUNT" ]; do f="$RUN/$n.ts"; while [ ! -s "$f" ]; do [ -f "$RUN/failed" ] && exit 1; sleep 1; done; cat "$f" > "$FIFO"; rm -f "$f"; echo "$n" > "$RUN/consumed"; n=$((n + 1)); done; }
+writer() { exec 3>"$FIFO"; n=0; while [ "$n" -lt "$COUNT" ]; do f="$RUN/$n.ts"; while [ ! -s "$f" ]; do [ -f "$RUN/failed" ] && exit 1; sleep 1; done; cat "$f" >&3; rm -f "$f"; echo "$n" > "$RUN/consumed"; n=$((n + 1)); done; }
 downloader & DL=$!
 writer & WR=$!
 "$MPLAYER" -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf "$FIFO"

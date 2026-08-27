@@ -2362,7 +2362,7 @@ static int aicwf_usb_chipmatch(struct aic_usb_dev *usb_dev, u16_l vid, u16_l pid
         return 0;
     }else if(pid == USB_PRODUCT_ID_AIC8800D81 || pid == USB_PRODUCT_ID_AIC8800D41 || pid == USB_PRODUCT_ID_AIC8800D83){
         usb_dev->chipid = PRODUCT_ID_AIC8800D81;
-        aicwf_usb_rx_aggr = true;
+        aicwf_usb_rx_aggr = false;
         AICWFDBG(LOGINFO, "%s USE AIC8800D81\r\n", __func__);
         return 0;
     }else if(pid == USB_PRODUCT_ID_AIC8800D81X2){

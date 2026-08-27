@@ -21,6 +21,16 @@ struct Item {
   const char* detail;
 };
 
+struct Video {
+  std::string bvid;
+  std::string title;
+  std::string owner;
+  std::string description;
+  std::string cover_url;
+  std::string cid;
+  std::string views;
+};
+
 const Item kItems[] = {
     {"Popular videos", "Browse Bilibili public popular feed"},
     {"Continue watching", "Local history adapter placeholder"},
@@ -36,7 +46,7 @@ enum Page {
 
 struct PopularFetch {
   std::mutex mutex;
-  std::vector<std::string> titles;
+  std::vector<Video> videos;
   std::string error;
   std::atomic<bool> done;
   PopularFetch() : done(false) {}
@@ -142,28 +152,79 @@ std::string JsonUnescape(const std::string& value) {
   return output;
 }
 
-std::vector<std::string> ExtractTitles(const std::string& response) {
-  std::vector<std::string> titles;
-  const std::string key = "\"title\":\"";
-  size_t cursor = 0;
-  while (titles.size() < 12) {
-    const size_t begin = response.find(key, cursor);
-    if (begin == std::string::npos) break;
-    size_t end = begin + key.size();
-    bool escaped = false;
-    for (; end < response.size(); ++end) {
-      if (!escaped && response[end] == '"') break;
-      if (!escaped && response[end] == '\\') escaped = true;
-      else escaped = false;
-    }
-    if (end == response.size()) break;
-    titles.push_back(JsonUnescape(response.substr(begin + key.size(), end - begin - key.size())));
-    cursor = end + 1;
+std::string JsonString(const std::string& object, const std::string& key) {
+  const std::string marker = "\"" + key + "\":\"";
+  const size_t start = object.find(marker);
+  if (start == std::string::npos) return "";
+  const size_t first = start + marker.size();
+  bool escaped = false;
+  for (size_t end = first; end < object.size(); ++end) {
+    if (!escaped && object[end] == '"')
+      return JsonUnescape(object.substr(first, end - first));
+    if (!escaped && object[end] == '\\') escaped = true;
+    else escaped = false;
   }
-  return titles;
+  return "";
 }
 
-bool FetchPopular(std::vector<std::string>* titles, std::string* error) {
+std::string JsonNumber(const std::string& object, const std::string& key) {
+  const std::string marker = "\"" + key + "\":";
+  const size_t start = object.find(marker);
+  if (start == std::string::npos) return "";
+  const size_t first = start + marker.size();
+  size_t last = first;
+  while (last < object.size() && object[last] >= '0' && object[last] <= '9') ++last;
+  return object.substr(first, last - first);
+}
+
+std::vector<std::string> JsonObjectsInList(const std::string& response) {
+  std::vector<std::string> objects;
+  const size_t list = response.find("\"list\":[");
+  if (list == std::string::npos) return objects;
+  size_t cursor = response.find('{', list);
+  while (cursor != std::string::npos && objects.size() < 12) {
+    int depth = 0;
+    bool in_string = false;
+    bool escaped = false;
+    size_t end = cursor;
+    for (; end < response.size(); ++end) {
+      const char c = response[end];
+      if (in_string) {
+        if (!escaped && c == '"') in_string = false;
+        if (!escaped && c == '\\') escaped = true;
+        else escaped = false;
+        continue;
+      }
+      if (c == '"') in_string = true;
+      else if (c == '{') ++depth;
+      else if (c == '}' && --depth == 0) break;
+    }
+    if (end == response.size()) break;
+    objects.push_back(response.substr(cursor, end - cursor + 1));
+    cursor = response.find('{', end + 1);
+  }
+  return objects;
+}
+
+std::vector<Video> ExtractVideos(const std::string& response) {
+  std::vector<Video> videos;
+  const std::vector<std::string> objects = JsonObjectsInList(response);
+  for (size_t i = 0; i < objects.size(); ++i) {
+    Video video;
+    video.bvid = JsonString(objects[i], "bvid");
+    video.title = JsonString(objects[i], "title");
+    video.owner = JsonString(objects[i], "name");
+    video.description = JsonString(objects[i], "desc");
+    video.cover_url = JsonString(objects[i], "pic");
+    video.cid = JsonNumber(objects[i], "cid");
+    const size_t stat = objects[i].find("\"stat\":{");
+    video.views = stat == std::string::npos ? "" : JsonNumber(objects[i].substr(stat), "view");
+    if (!video.bvid.empty() && !video.title.empty()) videos.push_back(video);
+  }
+  return videos;
+}
+
+bool FetchPopular(std::vector<Video>* videos, std::string* error) {
   CURL* curl = curl_easy_init();
   if (!curl) {
     *error = "curl initialization failed";
@@ -186,9 +247,9 @@ bool FetchPopular(std::vector<std::string>* titles, std::string* error) {
              " HTTP=" + std::to_string(code);
     return false;
   }
-  *titles = ExtractTitles(response);
-  if (titles->empty()) {
-    *error = "The popular feed response had no readable titles";
+  *videos = ExtractVideos(response);
+  if (videos->empty()) {
+    *error = "The popular feed response had no readable videos";
     return false;
   }
   return true;
@@ -233,7 +294,7 @@ int main() {
   const int item_count = sizeof(kItems) / sizeof(kItems[0]);
   int selected = 0;
   Page page = kHome;
-  std::string detail_title;
+  Video detail_video;
   std::string status = "Select an item, then click it again or press Enter.";
   PopularFetch fetch;
   std::thread worker;
@@ -267,9 +328,9 @@ int main() {
             StartPlayer(&status);
           } else if (page == kPopular) {
             std::lock_guard<std::mutex> lock(fetch.mutex);
-            if (!fetch.titles.empty()) {
-              selected %= static_cast<int>(fetch.titles.size());
-              detail_title = fetch.titles[selected];
+            if (!fetch.videos.empty()) {
+              selected %= static_cast<int>(fetch.videos.size());
+              detail_video = fetch.videos[selected];
               page = kDetail;
             }
           }
@@ -291,9 +352,9 @@ int main() {
         } else if (page == kPopular) {
           const int row = (event.button.y - 122) / 50;
           std::lock_guard<std::mutex> lock(fetch.mutex);
-          if (row >= 0 && row < static_cast<int>(fetch.titles.size())) {
+          if (row >= 0 && row < static_cast<int>(fetch.videos.size())) {
             if (row == selected) {
-              detail_title = fetch.titles[row];
+              detail_video = fetch.videos[row];
               page = kDetail;
             } else {
               selected = row;
@@ -307,14 +368,14 @@ int main() {
     }
 
     if (page == kHome && selected >= item_count) selected = item_count - 1;
-    if (page == kPopular && !fetch_active && fetch.titles.empty() && fetch.error.empty()) {
+    if (page == kPopular && !fetch_active && fetch.videos.empty() && fetch.error.empty()) {
       fetch_active = true;
       worker = std::thread([&fetch]() {
-        std::vector<std::string> titles;
+        std::vector<Video> videos;
         std::string error;
-        FetchPopular(&titles, &error);
+        FetchPopular(&videos, &error);
         std::lock_guard<std::mutex> lock(fetch.mutex);
-        fetch.titles.swap(titles);
+        fetch.videos.swap(videos);
         fetch.error = error;
         fetch.done.store(true);
       });
@@ -338,20 +399,24 @@ int main() {
     } else if (page == kPopular) {
       DrawHeader(screen, title_font, body_font, "Popular videos - Esc returns to home");
       std::lock_guard<std::mutex> lock(fetch.mutex);
-      for (size_t i = 0; i < fetch.titles.size() && i < 6; ++i) {
+      for (size_t i = 0; i < fetch.videos.size() && i < 6; ++i) {
         const SDL_Rect row = {28, static_cast<Sint16>(122 + i * 50), 744, 42};
         Fill(screen, row, static_cast<int>(i) == selected ? selected_panel : panel);
-        Text(screen, body_font, std::to_string(i + 1) + ". " + fetch.titles[i],
+        Text(screen, body_font, std::to_string(i + 1) + ". " + fetch.videos[i].title,
              44, 132 + static_cast<int>(i) * 50, Color(245, 247, 250));
       }
       if (fetch_active) Text(screen, body_font, "Loading from Bilibili public API...", 44, 140,
                              Color(245, 247, 250));
     } else {
       DrawHeader(screen, title_font, body_font, "Video detail - click or Esc to return");
-      TextWrapped(screen, title_font, detail_title, 42, 150, 700, 40, 2,
+      TextWrapped(screen, title_font, detail_video.title, 42, 150, 700, 40, 2,
                   Color(245, 247, 250));
-      Text(screen, body_font, "Video URL parsing and Cedar playback are the next adapter.",
-           42, 224, Color(185, 198, 215));
+      Text(screen, body_font, "Uploader: " + detail_video.owner + "    Views: " + detail_video.views,
+           42, 242, Color(185, 198, 215));
+      Text(screen, body_font, "BVID: " + detail_video.bvid + "    CID: " + detail_video.cid,
+           42, 270, Color(185, 198, 215));
+      TextWrapped(screen, body_font, detail_video.description, 42, 310, 700, 24, 3,
+                  Color(214, 225, 238));
     }
 
     const SDL_Rect footer = {28, 412, 744, 42};

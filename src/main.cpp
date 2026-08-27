@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -372,6 +373,18 @@ bool PollLoginQr(const std::string& qr_key, std::string* error) {
   return false;
 }
 
+bool HasSavedLogin() {
+  const char* home = std::getenv("HOME");
+  const std::string cookie_file =
+      std::string(home && home[0] ? home : "/tmp") + "/.wiliwili-lite-cookies.txt";
+  std::ifstream input(cookie_file.c_str());
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.find("SESSDATA") != std::string::npos) return true;
+  }
+  return false;
+}
+
 void StartPlayer(std::string* status) {
   const char* command = std::getenv("WILIWILI_LITE_PLAYER");
   if (!command || !command[0]) {
@@ -429,6 +442,7 @@ int main() {
   bool login_active = false;
   QRcode* login_qr = 0;
   Uint32 next_login_poll = 0;
+  bool logged_in = HasSavedLogin();
   LoginPoll login_poll;
   std::thread login_poll_worker;
   bool login_poll_active = false;
@@ -488,6 +502,7 @@ int main() {
       login_poll_active = false;
       std::lock_guard<std::mutex> lock(login_poll.mutex);
       if (login_poll.success) {
+        logged_in = true;
         status = "Login complete. Playback authorization cookie saved.";
         if (login_qr) { QRcode_free(login_qr); login_qr = 0; }
       } else {
@@ -678,7 +693,13 @@ int main() {
                              Color(245, 247, 250));
     } else if (page == kLogin) {
       DrawHeader(screen, title_font, body_font, "Account login - Esc returns to home");
-      if (login_qr) {
+      if (logged_in) {
+        Text(screen, title_font, "Login complete", 62, 145, Color(245, 247, 250));
+        TextWrapped(screen, body_font,
+                    "Bilibili session credentials are saved only in this user's home directory. "
+                    "Return to a video detail page to request its playback stream.",
+                    62, 205, 640, 28, 4, Color(185, 198, 215));
+      } else if (login_qr) {
         const int modules = login_qr->width;
         const int scale = modules <= 37 ? 8 : 6;
         const int size = modules * scale;

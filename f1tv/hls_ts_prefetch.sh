@@ -25,4 +25,4 @@ downloader() { n=0; while [ "$n" -lt "$COUNT" ]; do c=$(cat "$RUN/consumed"); wh
 writer() { n=0; while [ "$n" -lt "$COUNT" ]; do f="$RUN/$n.ts"; while [ ! -s "$f" ]; do [ -f "$RUN/failed" ] && exit 1; sleep 1; done; cat "$f" > "$FIFO"; rm -f "$f"; echo "$n" > "$RUN/consumed"; n=$((n + 1)); done; }
 downloader & DL=$!
 writer & WR=$!
-exec "$MPLAYER" -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf "$FIFO"
+"$MPLAYER" -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf "$FIFO"

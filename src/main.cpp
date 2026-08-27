@@ -1,4 +1,5 @@
 #include <SDL/SDL.h>
+#include <SDL/SDL_image.h>
 #include <SDL/SDL_ttf.h>
 #include <curl/curl.h>
 
@@ -50,6 +51,14 @@ struct PopularFetch {
   std::string error;
   std::atomic<bool> done;
   PopularFetch() : done(false) {}
+};
+
+struct CoverFetch {
+  std::mutex mutex;
+  std::string bytes;
+  std::string error;
+  std::atomic<bool> done;
+  CoverFetch() : done(false) {}
 };
 
 SDL_Color Color(Uint8 r, Uint8 g, Uint8 b) {
@@ -255,6 +264,29 @@ bool FetchPopular(std::vector<Video>* videos, std::string* error) {
   return true;
 }
 
+bool FetchCover(const std::string& url, std::string* bytes, std::string* error) {
+  CURL* curl = curl_easy_init();
+  if (!curl) {
+    *error = "Cover download: curl initialization failed";
+    return false;
+  }
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StoreCurl);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, bytes);
+  curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 8L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "wiliwili-lite-f1c200s/0.3");
+  const CURLcode result = curl_easy_perform(curl);
+  long code = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+  curl_easy_cleanup(curl);
+  if (result != CURLE_OK || code != 200 || bytes->empty()) {
+    *error = "Cover download failed";
+    return false;
+  }
+  return true;
+}
+
 void StartPlayer(std::string* status) {
   const char* command = std::getenv("WILIWILI_LITE_PLAYER");
   if (!command || !command[0]) {
@@ -299,6 +331,10 @@ int main() {
   PopularFetch fetch;
   std::thread worker;
   bool fetch_active = false;
+  CoverFetch cover_fetch;
+  std::thread cover_worker;
+  bool cover_active = false;
+  SDL_Surface* cover = 0;
   bool running = true;
 
   while (running) {
@@ -308,6 +344,21 @@ int main() {
       std::lock_guard<std::mutex> lock(fetch.mutex);
       status = fetch.error.empty() ? "Popular list loaded" : fetch.error;
       selected = 0;
+    }
+    if (cover_active && cover_fetch.done.load()) {
+      cover_worker.join();
+      cover_active = false;
+      std::lock_guard<std::mutex> lock(cover_fetch.mutex);
+      SDL_RWops* rw = SDL_RWFromConstMem(cover_fetch.bytes.data(), cover_fetch.bytes.size());
+      SDL_Surface* decoded = rw ? IMG_Load_RW(rw, 1) : 0;
+      if (decoded) {
+        if (cover) SDL_FreeSurface(cover);
+        cover = SDL_DisplayFormat(decoded);
+        SDL_FreeSurface(decoded);
+        status = cover ? "Cover loaded" : "Cover format conversion failed";
+      } else {
+        status = cover_fetch.error.empty() ? "Cover decode failed" : cover_fetch.error;
+      }
     }
 
     SDL_Event event;
@@ -331,6 +382,10 @@ int main() {
             if (!fetch.videos.empty()) {
               selected %= static_cast<int>(fetch.videos.size());
               detail_video = fetch.videos[selected];
+              if (cover) { SDL_FreeSurface(cover); cover = 0; }
+              cover_fetch.bytes.clear();
+              cover_fetch.error.clear();
+              cover_fetch.done.store(false);
               page = kDetail;
             }
           }
@@ -355,6 +410,10 @@ int main() {
           if (row >= 0 && row < static_cast<int>(fetch.videos.size())) {
             if (row == selected) {
               detail_video = fetch.videos[row];
+              if (cover) { SDL_FreeSurface(cover); cover = 0; }
+              cover_fetch.bytes.clear();
+              cover_fetch.error.clear();
+              cover_fetch.done.store(false);
               page = kDetail;
             } else {
               selected = row;
@@ -380,6 +439,21 @@ int main() {
         fetch.done.store(true);
       });
       status = "Loading popular videos...";
+    }
+    if (page == kDetail && !cover_active && !cover && !detail_video.cover_url.empty() &&
+        !cover_fetch.done.load()) {
+      cover_active = true;
+      const std::string cover_url = detail_video.cover_url;
+      cover_worker = std::thread([&cover_fetch, cover_url]() {
+        std::string bytes;
+        std::string error;
+        FetchCover(cover_url, &bytes, &error);
+        std::lock_guard<std::mutex> lock(cover_fetch.mutex);
+        cover_fetch.bytes.swap(bytes);
+        cover_fetch.error = error;
+        cover_fetch.done.store(true);
+      });
+      status = "Loading cover...";
     }
 
     const Uint32 background = SDL_MapRGB(screen->format, 20, 25, 35);
@@ -409,10 +483,15 @@ int main() {
                              Color(245, 247, 250));
     } else {
       DrawHeader(screen, title_font, body_font, "Video detail - click or Esc to return");
-      TextWrapped(screen, title_font, detail_video.title, 42, 150, 700, 40, 2,
+      if (cover) {
+        SDL_Rect source = {0, 0, static_cast<Uint16>(cover->w), static_cast<Uint16>(cover->h)};
+        SDL_Rect destination = {42, 150, 160, 90};
+        SDL_SoftStretch(cover, &source, screen, &destination);
+      }
+      TextWrapped(screen, title_font, detail_video.title, 225, 150, 510, 40, 2,
                   Color(245, 247, 250));
       Text(screen, body_font, "Uploader: " + detail_video.owner + "    Views: " + detail_video.views,
-           42, 242, Color(185, 198, 215));
+           225, 242, Color(185, 198, 215));
       Text(screen, body_font, "BVID: " + detail_video.bvid + "    CID: " + detail_video.cid,
            42, 270, Color(185, 198, 215));
       TextWrapped(screen, body_font, detail_video.description, 42, 310, 700, 24, 3,
@@ -427,6 +506,8 @@ int main() {
   }
 
   if (worker.joinable()) worker.join();
+  if (cover_worker.joinable()) cover_worker.join();
+  if (cover) SDL_FreeSurface(cover);
   TTF_CloseFont(body_font);
   TTF_CloseFont(title_font);
   curl_global_cleanup();

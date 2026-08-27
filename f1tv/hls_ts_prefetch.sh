@@ -6,8 +6,9 @@ MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cedar_hls_async_drain_20
 ROOT=${RUN_ROOT:-/root/roms/tv/run}
 PREFETCH=${PREFETCH_SEGMENTS:-3}
 RUN="$ROOT/hls-ts-prefetch-$$"
-FIFO="$RUN/stream.ts"
+FIFO="/tmp/hls-ts-prefetch-$$.ts"
 DL= WR=
+    rm -f "$FIFO"
 cleanup() { [ -n "$DL" ] && kill "$DL" 2>/dev/null || true; [ -n "$WR" ] && kill "$WR" 2>/dev/null || true; rm -rf "$RUN"; }
 trap cleanup EXIT INT TERM
 case "$URL" in http://*) ;; *) echo "HTTP VOD only" >&2; exit 2;; esac

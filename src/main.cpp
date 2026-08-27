@@ -87,6 +87,26 @@ void StartPlayer(std::string* status) {
   *status = result == 0 ? "Playback backend started" : "Playback backend failed to start";
 }
 
+void RunSelectedAction(int selected, std::string* status) {
+  switch (selected) {
+    case 0:
+      CheckPopularApi(status);
+      break;
+    case 1:
+      *status = "Continue watching: history adapter is not implemented yet";
+      break;
+    case 2:
+      *status = "Search: search adapter is not implemented yet";
+      break;
+    case 3:
+      StartPlayer(status);
+      break;
+    default:
+      *status = "Invalid menu selection";
+      break;
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -112,7 +132,7 @@ int main() {
   const int item_count = sizeof(kItems) / sizeof(kItems[0]);
   int selected = 0;
   bool running = true;
-  std::string status = "Ready. R checks Bilibili API. Enter opens the backend.";
+  std::string status = "Select an item, then click it again or press Enter.";
 
   while (running) {
     SDL_Event event;
@@ -124,13 +144,19 @@ int main() {
         if (key == SDLK_UP) selected = (selected + item_count - 1) % item_count;
         if (key == SDLK_DOWN) selected = (selected + 1) % item_count;
         if (key == SDLK_r) CheckPopularApi(&status);
-        if (key == SDLK_RETURN || key == SDLK_p) StartPlayer(&status);
+        if (key == SDLK_RETURN || key == SDLK_p) RunSelectedAction(selected, &status);
       }
       if (event.type == SDL_MOUSEBUTTONDOWN) {
         int row = (event.button.y - 132) / 64;
-        if (row >= 0 && row < item_count) selected = row;
-        if (event.button.button == SDL_BUTTON_LEFT && row >= 0 && row < item_count)
-          StartPlayer(&status);
+        if (event.button.button == SDL_BUTTON_LEFT && row >= 0 && row < item_count) {
+          if (row == selected) {
+            RunSelectedAction(selected, &status);
+          } else {
+            selected = row;
+            status = std::string("Selected: ") + kItems[selected].title +
+                     ". Click again or press Enter.";
+          }
+        }
       }
     }
 

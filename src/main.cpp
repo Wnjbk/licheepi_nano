@@ -63,6 +63,35 @@ void Text(SDL_Surface* screen, TTF_Font* font, const std::string& value, int x,
   SDL_FreeSurface(glyph);
 }
 
+void TextWrapped(SDL_Surface* screen, TTF_Font* font, const std::string& value,
+                 int x, int y, int max_width, int line_height, int max_lines,
+                 SDL_Color color) {
+  std::string line;
+  int line_count = 0;
+  for (size_t offset = 0; offset < value.size();) {
+    size_t length = 1;
+    const unsigned char lead = static_cast<unsigned char>(value[offset]);
+    if ((lead & 0xf0) == 0xf0) length = 4;
+    else if ((lead & 0xe0) == 0xe0) length = 3;
+    else if ((lead & 0xc0) == 0xc0) length = 2;
+    if (offset + length > value.size()) length = 1;
+    const std::string character = value.substr(offset, length);
+    int width = 0;
+    int height = 0;
+    TTF_SizeUTF8(font, (line + character).c_str(), &width, &height);
+    if (width > max_width && !line.empty()) {
+      Text(screen, font, line, x, y + line_count * line_height, color);
+      line.clear();
+      ++line_count;
+      if (line_count == max_lines) return;
+    }
+    line += character;
+    offset += length;
+  }
+  if (!line.empty() && line_count < max_lines)
+    Text(screen, font, line, x, y + line_count * line_height, color);
+}
+
 size_t StoreCurl(void* data, size_t size, size_t count, void* user_data) {
   std::string* response = static_cast<std::string*>(user_data);
   response->append(static_cast<const char*>(data), size * count);
@@ -319,7 +348,8 @@ int main() {
                              Color(245, 247, 250));
     } else {
       DrawHeader(screen, title_font, body_font, "Video detail - click or Esc to return");
-      Text(screen, title_font, detail_title, 42, 150, Color(245, 247, 250));
+      TextWrapped(screen, title_font, detail_title, 42, 150, 700, 40, 2,
+                  Color(245, 247, 250));
       Text(screen, body_font, "Video URL parsing and Cedar playback are the next adapter.",
            42, 224, Color(185, 198, 215));
     }

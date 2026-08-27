@@ -454,6 +454,7 @@ int main() {
   LoginPoll login_poll;
   std::thread login_poll_worker;
   bool login_poll_active = false;
+  bool refresh_login_requested = false;
   bool running = true;
 
   while (running) {
@@ -515,6 +516,7 @@ int main() {
         if (login_qr) { QRcode_free(login_qr); login_qr = 0; }
       } else {
         status = login_poll.error;
+        if (login_poll.error == "QR code expired") refresh_login_requested = true;
         next_login_poll = SDL_GetTicks() + 2000;
       }
     }
@@ -528,6 +530,7 @@ int main() {
           if (page == kHome) running = false;
           else page = kHome;
         }
+        if (key == SDLK_r && page == kLogin) refresh_login_requested = true;
         if (key == SDLK_UP) selected = selected > 0 ? selected - 1 : 0;
         if (key == SDLK_DOWN) ++selected;
         if (key == SDLK_RETURN || key == SDLK_p) {
@@ -591,8 +594,24 @@ int main() {
           }
         } else if (page == kDetail) {
           page = kPopular;
+        } else if (page == kLogin) {
+          refresh_login_requested = true;
         }
       }
+    }
+
+    if (refresh_login_requested && !login_active && !login_poll_active) {
+      refresh_login_requested = false;
+      if (login_qr) { QRcode_free(login_qr); login_qr = 0; }
+      login_fetch.qr_url.clear();
+      login_fetch.qr_key.clear();
+      login_fetch.error.clear();
+      login_fetch.done.store(false);
+      const char* home = std::getenv("HOME");
+      const std::string pending_cookie_file = std::string(home && home[0] ? home : "/tmp") +
+                                              "/.wiliwili-lite-cookies.txt.pending";
+      std::remove(pending_cookie_file.c_str());
+      status = "Refreshing QR login...";
     }
 
     if (page == kHome && selected >= item_count) selected = item_count - 1;
@@ -704,7 +723,7 @@ int main() {
       if (fetch_active) Text(screen, body_font, "Loading from Bilibili public API...", 44, 140,
                              Color(245, 247, 250));
     } else if (page == kLogin) {
-      DrawHeader(screen, title_font, body_font, "Account login - Esc returns to home");
+      DrawHeader(screen, title_font, body_font, "Account login - Esc home, R or click refreshes QR");
       if (logged_in) {
         Text(screen, title_font, "Login complete", 62, 145, Color(245, 247, 250));
         TextWrapped(screen, body_font,

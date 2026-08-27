@@ -14,7 +14,7 @@ namespace {
 
 const int kWidth = 800;
 const int kHeight = 480;
-const char* kFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+const char* kFontPath = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc";
 
 struct Item {
   const char* title;

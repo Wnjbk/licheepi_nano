@@ -539,6 +539,7 @@ int main() {
 
   const int item_count = sizeof(kItems) / sizeof(kItems[0]);
   int selected = 0;
+  int list_offset = 0;
   Page page = kHome;
   Video detail_video;
   std::string status = "Select an item, then click it again or press Enter.";
@@ -641,6 +642,13 @@ int main() {
         if (key == SDLK_r && page == kLogin) refresh_login_requested = true;
         if (key == SDLK_UP) selected = selected > 0 ? selected - 1 : 0;
         if (key == SDLK_DOWN) ++selected;
+        if (page == kPopular) {
+          std::lock_guard<std::mutex> lock(fetch.mutex);
+          const int last = fetch.videos.empty() ? 0 : static_cast<int>(fetch.videos.size()) - 1;
+          if (selected > last) selected = last;
+          if (selected < list_offset) list_offset = selected;
+          if (selected >= list_offset + 6) list_offset = selected - 5;
+        }
         if (key == SDLK_RETURN || key == SDLK_p) {
           if (page == kHome && selected == 0) {
             page = kPopular;
@@ -685,7 +693,7 @@ int main() {
             }
           }
         } else if (page == kPopular) {
-          const int row = (event.button.y - 122) / 50;
+          const int row = (event.button.y - 122) / 50 + list_offset;
           std::lock_guard<std::mutex> lock(fetch.mutex);
           if (row >= 0 && row < static_cast<int>(fetch.videos.size())) {
             if (row == selected) {
@@ -709,6 +717,14 @@ int main() {
         } else if (page == kLogin) {
           refresh_login_requested = true;
         }
+      }
+      if (event.type == SDL_MOUSEBUTTONDOWN && page == kPopular &&
+          (event.button.button == SDL_BUTTON_WHEELUP || event.button.button == SDL_BUTTON_WHEELDOWN)) {
+        std::lock_guard<std::mutex> lock(fetch.mutex);
+        const int maximum = fetch.videos.size() > 6 ? static_cast<int>(fetch.videos.size()) - 6 : 0;
+        list_offset += event.button.button == SDL_BUTTON_WHEELUP ? -1 : 1;
+        if (list_offset < 0) list_offset = 0;
+        if (list_offset > maximum) list_offset = maximum;
       }
     }
 
@@ -827,10 +843,21 @@ int main() {
       DrawHeader(screen, title_font, body_font, "Popular videos - Esc returns to home");
       std::lock_guard<std::mutex> lock(fetch.mutex);
       for (size_t i = 0; i < fetch.videos.size() && i < 6; ++i) {
+        const size_t index = i + list_offset;
+        if (index >= fetch.videos.size()) break;
         const SDL_Rect row = {28, static_cast<Sint16>(122 + i * 50), 744, 42};
-        Fill(screen, row, static_cast<int>(i) == selected ? selected_panel : panel);
-        Text(screen, body_font, std::to_string(i + 1) + ". " + fetch.videos[i].title,
+        Fill(screen, row, static_cast<int>(index) == selected ? selected_panel : panel);
+        Text(screen, body_font, std::to_string(index + 1) + ". " + fetch.videos[index].title,
              44, 132 + static_cast<int>(i) * 50, Color(245, 247, 250));
+      }
+      if (fetch.videos.size() > 6) {
+        const int height = 292 * 6 / static_cast<int>(fetch.videos.size());
+        const int y = 122 + (292 - height) * list_offset /
+                      (static_cast<int>(fetch.videos.size()) - 6);
+        const SDL_Rect track = {760, 122, 6, 292};
+        const SDL_Rect thumb = {758, static_cast<Sint16>(y), 10, static_cast<Uint16>(height)};
+        Fill(screen, track, SDL_MapRGB(screen->format, 77, 89, 108));
+        Fill(screen, thumb, SDL_MapRGB(screen->format, 220, 229, 238));
       }
       if (fetch_active) Text(screen, body_font, "Loading from Bilibili public API...", 44, 140,
                              Color(245, 247, 250));

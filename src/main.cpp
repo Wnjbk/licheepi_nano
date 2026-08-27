@@ -7,6 +7,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -341,6 +342,7 @@ bool PollLoginQr(const std::string& qr_key, std::string* error) {
   const char* home = std::getenv("HOME");
   const std::string cookie_file =
       std::string(home && home[0] ? home : "/tmp") + "/.wiliwili-lite-cookies.txt";
+  const std::string pending_cookie_file = cookie_file + ".pending";
   CURL* curl = curl_easy_init();
   if (!curl) return false;
   std::string response;
@@ -352,8 +354,8 @@ bool PollLoginQr(const std::string& qr_key, std::string* error) {
   curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StoreCurl);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookie_file.c_str());
-  curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookie_file.c_str());
+  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, pending_cookie_file.c_str());
+  curl_easy_setopt(curl, CURLOPT_COOKIEJAR, pending_cookie_file.c_str());
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 wiliwili-lite-f1c200s/0.4");
   curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
   const CURLcode result = curl_easy_perform(curl);
@@ -365,7 +367,13 @@ bool PollLoginQr(const std::string& qr_key, std::string* error) {
     *error = "QR login polling failed";
     return false;
   }
-  if (status_code == "0") return true;
+  if (status_code == "0") {
+    if (std::rename(pending_cookie_file.c_str(), cookie_file.c_str()) != 0) {
+      *error = "Login succeeded but cookie save failed";
+      return false;
+    }
+    return true;
+  }
   if (status_code == "86101") *error = "Waiting for scan";
   else if (status_code == "86090") *error = "Confirm login on phone";
   else if (status_code == "86038") *error = "QR code expired";
@@ -602,6 +610,10 @@ int main() {
       status = "Loading popular videos...";
     }
     if (page == kLogin && !login_active && !login_qr && !login_fetch.done.load()) {
+      const char* home = std::getenv("HOME");
+      const std::string pending_cookie_file = std::string(home && home[0] ? home : "/tmp") +
+                                              "/.wiliwili-lite-cookies.txt.pending";
+      std::remove(pending_cookie_file.c_str());
       login_active = true;
       login_worker = std::thread([&login_fetch]() {
         std::string qr_url;

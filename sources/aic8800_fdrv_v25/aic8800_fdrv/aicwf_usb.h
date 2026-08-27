@@ -73,7 +73,7 @@ enum AICWF_IC{
 #ifdef CONFIG_PLATFORM_HI
 #define AICWF_USB_AGGR_MAX_PKT_SIZE     (2048*1)
 #else
-#define AICWF_USB_AGGR_MAX_PKT_SIZE     (2048*10)
+#define AICWF_USB_AGGR_MAX_PKT_SIZE     (2048*2)
 #endif
 #define AICWF_USB_MSG_MAX_PKT_SIZE      (2048)
 #define AICWF_USB_MAX_PKT_SIZE          (2048)

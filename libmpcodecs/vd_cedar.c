@@ -31,6 +31,7 @@ typedef struct {
     int64_t fallback_pts;
     int64_t pts_base;
     int have_pts_base;
+    unsigned int trace_decode_calls;
 } vd_cedar_ctx;
 
 /* One MPlayer instance owns the Cedar display queue. */
@@ -296,7 +297,12 @@ static int submit_packet(vd_cedar_ctx *ctx, sh_video_t *sh, void *data, int len)
     packet.nPcr = -1;
     packet.bIsFirstPart = 1;
     packet.bIsLastPart = 1;
-    return SubmitVideoStreamData(ctx->decoder, &packet, 0);
+    {
+        int submit_result = SubmitVideoStreamData(ctx->decoder, &packet, 0);
+        if (ctx->trace_decode_calls <= 40 || (ctx->trace_decode_calls % 300) == 0)
+            mp_msg(MSGT_DECVIDEO, MSGL_INFO, "[cedar] packet #%u len=%d pts=%lld submit=%d\\n", ctx->trace_decode_calls, stream_len, (long long)packet.nPts, submit_result);
+        return submit_result;
+    }
 
 invalid_avcc:
     mp_msg(MSGT_DECVIDEO, MSGL_ERR, "[cedar] invalid AVCC packet\n");
@@ -311,9 +317,11 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
     VideoPicture *picture;
     mp_image_t *mpi;
     int result;
+    int valid_pictures;
 
     if (!ctx || !ctx->configured)
         return NULL;
+    ctx->trace_decode_calls++;
     if (data && len > 0 && submit_packet(ctx, sh, data, len) != 0)
         return NULL;
 
@@ -323,12 +331,20 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
         usleep(1000);
         result = DecodeVideoStream(ctx->decoder, 0, 0, 0, 0);
     }
+    valid_pictures = ValidPictureNum(ctx->decoder, 0);
+    if (ctx->trace_decode_calls <= 40 || (ctx->trace_decode_calls % 300) == 0)
+        mp_msg(MSGT_DECVIDEO, MSGL_INFO,
+               "[cedar] decode #%u data=%d result=%d valid=%d\\n",
+               ctx->trace_decode_calls, data ? len : 0, result, valid_pictures);
     if (result != VDECODE_RESULT_FRAME_DECODED &&
         result != VDECODE_RESULT_KEYFRAME_DECODED)
         return NULL;
     picture = RequestPicture(ctx->decoder, 0);
-    if (!picture)
+    if (!picture) {
+        mp_msg(MSGT_DECVIDEO, MSGL_WARN,
+               "[cedar] frame result without a picture\\n");
         return NULL;
+    }
 
     mpi = mpcodecs_get_image(sh, MP_IMGTYPE_EXPORT, MP_IMGFLAG_PRESERVE,
                              picture->nWidth, picture->nHeight);

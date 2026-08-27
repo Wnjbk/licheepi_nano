@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
+find_package(OpenSSL REQUIRED)
 pkg_check_modules(SDL REQUIRED sdl)
 pkg_check_modules(SDL_TTF REQUIRED SDL_ttf)
 pkg_check_modules(SDL_IMAGE REQUIRED SDL_image)
@@ -18,5 +19,5 @@ target_include_directories(wiliwili-lite PRIVATE
     ${QRENCODE_INCLUDE_DIRS} ${CURL_INCLUDE_DIRS})
 target_link_libraries(wiliwili-lite
     ${SDL_LIBRARIES} ${SDL_TTF_LIBRARIES} ${SDL_IMAGE_LIBRARIES}
-    ${QRENCODE_LIBRARIES} ${CURL_LIBRARIES} Threads::Threads)
+    ${QRENCODE_LIBRARIES} ${CURL_LIBRARIES} Threads::Threads OpenSSL::Crypto)
 target_compile_options(wiliwili-lite PRIVATE -Wall -Wextra -Werror)

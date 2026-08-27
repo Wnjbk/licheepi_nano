@@ -3,12 +3,17 @@
 #include <SDL/SDL_ttf.h>
 #include <curl/curl.h>
 #include <qrencode.h>
+#include <openssl/md5.h>
 
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <cstdio>
 #include <fstream>
+#include <iomanip>
+#include <map>
+#include <sstream>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -393,14 +398,117 @@ bool HasSavedLogin() {
   return false;
 }
 
-void StartPlayer(std::string* status) {
-  const char* command = std::getenv("WILIWILI_LITE_PLAYER");
-  if (!command || !command[0]) {
-    *status = "Playback backend is not configured";
-    return;
+std::string Md5Hex(const std::string& value) {
+  unsigned char digest[MD5_DIGEST_LENGTH];
+  MD5(reinterpret_cast<const unsigned char*>(value.data()), value.size(), digest);
+  std::ostringstream output;
+  for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
+    output << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(digest[i]);
+  return output.str();
+}
+
+std::string WbiKey(const std::string& url) {
+  const size_t slash = url.find_last_of('/');
+  const size_t dot = url.find_last_of('.');
+  return slash == std::string::npos || dot == std::string::npos || slash >= dot ? "" :
+      url.substr(slash + 1, dot - slash - 1);
+}
+
+std::string WbiMixin(const std::string& image, const std::string& sub) {
+  static const int table[] = {46,47,18,2,53,8,23,32,15,50,10,31,58,3,45,35,
+                              27,43,5,49,33,9,42,19,29,28,14,39,12,38,41,13};
+  const std::string raw = image + sub;
+  if (raw.size() < 64) return "";
+  std::string output;
+  for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); ++i) output += raw[table[i]];
+  return output;
+}
+
+bool HttpGet(const std::string& url, std::string* response, std::string* error) {
+  const char* home = std::getenv("HOME");
+  const std::string cookies = std::string(home && home[0] ? home : "/tmp") +
+                              "/.wiliwili-lite-cookies.txt";
+  CURL* curl = curl_easy_init();
+  if (!curl) return false;
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StoreCurl);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
+  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookies.c_str());
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 wiliwili-lite-f1c200s/0.5");
+  curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 8L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 20L);
+  const CURLcode result = curl_easy_perform(curl);
+  long code = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+  curl_easy_cleanup(curl);
+  if (result != CURLE_OK || code != 200) {
+    *error = "Playback request failed";
+    return false;
   }
-  const std::string background =
-      std::string(command) + " >/tmp/wiliwili-lite-player.log 2>&1 &";
+  return true;
+}
+
+std::string SignWbi(const std::map<std::string, std::string>& parameters,
+                    const std::string& mixin) {
+  CURL* curl = curl_easy_init();
+  std::string query;
+  for (std::map<std::string, std::string>::const_iterator it = parameters.begin();
+       it != parameters.end(); ++it) {
+    char* escaped = curl_easy_escape(curl, it->second.c_str(), it->second.size());
+    if (!query.empty()) query += "&";
+    query += it->first + "=" + (escaped ? escaped : "");
+    if (escaped) curl_free(escaped);
+  }
+  curl_easy_cleanup(curl);
+  return query + "&w_rid=" + Md5Hex(query + mixin);
+}
+
+bool ResolvePlaybackUrl(const Video& video, std::string* media_url, std::string* error) {
+  std::string nav;
+  if (!HttpGet("https://api.bilibili.com/x/web-interface/nav", &nav, error)) return false;
+  const std::string mixin = WbiMixin(WbiKey(JsonString(nav, "img_url")),
+                                     WbiKey(JsonString(nav, "sub_url")));
+  if (mixin.empty()) { *error = "Could not obtain WBI signing key"; return false; }
+  std::map<std::string, std::string> parameters;
+  parameters["bvid"] = video.bvid;
+  parameters["cid"] = video.cid;
+  parameters["fnval"] = "16";
+  parameters["fnver"] = "0";
+  parameters["fourk"] = "0";
+  parameters["qn"] = "64";
+  parameters["wts"] = std::to_string(std::time(0));
+  std::string response;
+  if (!HttpGet("https://api.bilibili.com/x/player/wbi/playurl?" + SignWbi(parameters, mixin),
+               &response, error)) return false;
+  const std::string voucher = JsonString(response, "v_voucher");
+  if (!voucher.empty()) {
+    parameters["v_voucher"] = voucher;
+    parameters["wts"] = std::to_string(std::time(0));
+    response.clear();
+    if (!HttpGet("https://api.bilibili.com/x/player/wbi/playurl?" + SignWbi(parameters, mixin),
+                 &response, error)) return false;
+  }
+  *media_url = JsonString(response, "base_url");
+  if (media_url->empty()) *media_url = JsonString(response, "baseUrl");
+  if (media_url->empty()) { *error = "No DASH video stream returned"; return false; }
+  return true;
+}
+
+std::string ShellQuote(const std::string& value) {
+  std::string quoted = "'";
+  for (size_t i = 0; i < value.size(); ++i)
+    quoted += value[i] == '\'' ? "'\\''" : std::string(1, value[i]);
+  return quoted + "'";
+}
+
+void StartPlayer(const std::string& url, std::string* status) {
+  const char* command = std::getenv("WILIWILI_LITE_PLAYER");
+  std::string launch = command && command[0] ? command : "gst-launch-1.0 playbin uri=%URL%";
+  const std::string placeholder = "%URL%";
+  const size_t position = launch.find(placeholder);
+  if (position == std::string::npos) launch += " " + ShellQuote(url);
+  else launch.replace(position, placeholder.size(), ShellQuote(url));
+  const std::string background = launch + " >/tmp/wiliwili-lite-player.log 2>&1 &";
   const int result = std::system(background.c_str());
   *status = result == 0 ? "Playback backend started" : "Playback backend failed to start";
 }
@@ -537,7 +645,7 @@ int main() {
           if (page == kHome && selected == 0) {
             page = kPopular;
           } else if (page == kHome && selected == 3) {
-            StartPlayer(&status);
+            status = "Open a video detail page, then press P to play";
           } else if (page == kHome && selected == 4) {
             page = kLogin;
           } else if (page == kPopular) {
@@ -555,6 +663,10 @@ int main() {
               avatar_fetch.done.store(false);
               page = kDetail;
             }
+          } else if (page == kDetail) {
+            std::string media_url;
+            if (ResolvePlaybackUrl(detail_video, &media_url, &status))
+              StartPlayer(media_url, &status);
           }
         }
       }
@@ -564,7 +676,7 @@ int main() {
           if (row >= 0 && row < item_count) {
             if (row == selected) {
               if (row == 0) page = kPopular;
-              else if (row == 3) StartPlayer(&status);
+              else if (row == 3) status = "Open a video detail page, then press P to play";
               else if (row == 4) page = kLogin;
               else status = std::string(kItems[row].title) + " is not implemented yet";
             } else {
@@ -760,7 +872,7 @@ int main() {
         Text(screen, body_font, "Loading QR code...", 62, 150, Color(245, 247, 250));
       }
     } else {
-      DrawHeader(screen, title_font, body_font, "Video detail - click or Esc to return");
+      DrawHeader(screen, title_font, body_font, "Video detail - P plays, click or Esc returns");
       if (cover) {
         SDL_Rect source = {0, 0, static_cast<Uint16>(cover->w), static_cast<Uint16>(cover->h)};
         SDL_Rect destination = {42, 150, 160, 90};
@@ -781,6 +893,8 @@ int main() {
            42, 305, Color(185, 198, 215));
       TextWrapped(screen, body_font, detail_video.description, 42, 335, 700, 24, 3,
                   Color(214, 225, 238));
+      Text(screen, body_font, "Press P to resolve and play this video", 42, 392,
+           Color(255, 190, 80));
     }
 
     const SDL_Rect footer = {28, 412, 744, 42};

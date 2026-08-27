@@ -26,6 +26,7 @@ struct Video {
   std::string bvid;
   std::string title;
   std::string owner;
+  std::string owner_face_url;
   std::string description;
   std::string cover_url;
   std::string cid;
@@ -223,6 +224,7 @@ std::vector<Video> ExtractVideos(const std::string& response) {
     video.bvid = JsonString(objects[i], "bvid");
     video.title = JsonString(objects[i], "title");
     video.owner = JsonString(objects[i], "name");
+    video.owner_face_url = JsonString(objects[i], "face");
     video.description = JsonString(objects[i], "desc");
     video.cover_url = JsonString(objects[i], "pic");
     video.cid = JsonNumber(objects[i], "cid");
@@ -335,6 +337,10 @@ int main() {
   std::thread cover_worker;
   bool cover_active = false;
   SDL_Surface* cover = 0;
+  CoverFetch avatar_fetch;
+  std::thread avatar_worker;
+  bool avatar_active = false;
+  SDL_Surface* avatar = 0;
   bool running = true;
 
   while (running) {
@@ -360,6 +366,18 @@ int main() {
         status = cover_fetch.error.empty() ? "Cover decode failed" : cover_fetch.error;
       }
     }
+    if (avatar_active && avatar_fetch.done.load()) {
+      avatar_worker.join();
+      avatar_active = false;
+      std::lock_guard<std::mutex> lock(avatar_fetch.mutex);
+      SDL_RWops* rw = SDL_RWFromConstMem(avatar_fetch.bytes.data(), avatar_fetch.bytes.size());
+      SDL_Surface* decoded = rw ? IMG_Load_RW(rw, 1) : 0;
+      if (decoded) {
+        if (avatar) SDL_FreeSurface(avatar);
+        avatar = SDL_DisplayFormat(decoded);
+        SDL_FreeSurface(decoded);
+      }
+    }
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -383,9 +401,13 @@ int main() {
               selected %= static_cast<int>(fetch.videos.size());
               detail_video = fetch.videos[selected];
               if (cover) { SDL_FreeSurface(cover); cover = 0; }
+              if (avatar) { SDL_FreeSurface(avatar); avatar = 0; }
               cover_fetch.bytes.clear();
               cover_fetch.error.clear();
               cover_fetch.done.store(false);
+              avatar_fetch.bytes.clear();
+              avatar_fetch.error.clear();
+              avatar_fetch.done.store(false);
               page = kDetail;
             }
           }
@@ -411,9 +433,13 @@ int main() {
             if (row == selected) {
               detail_video = fetch.videos[row];
               if (cover) { SDL_FreeSurface(cover); cover = 0; }
+              if (avatar) { SDL_FreeSurface(avatar); avatar = 0; }
               cover_fetch.bytes.clear();
               cover_fetch.error.clear();
               cover_fetch.done.store(false);
+              avatar_fetch.bytes.clear();
+              avatar_fetch.error.clear();
+              avatar_fetch.done.store(false);
               page = kDetail;
             } else {
               selected = row;
@@ -455,6 +481,20 @@ int main() {
       });
       status = "Loading cover...";
     }
+    if (page == kDetail && !avatar_active && !avatar && !detail_video.owner_face_url.empty() &&
+        !avatar_fetch.done.load()) {
+      avatar_active = true;
+      const std::string avatar_url = detail_video.owner_face_url;
+      avatar_worker = std::thread([&avatar_fetch, avatar_url]() {
+        std::string bytes;
+        std::string error;
+        FetchCover(avatar_url, &bytes, &error);
+        std::lock_guard<std::mutex> lock(avatar_fetch.mutex);
+        avatar_fetch.bytes.swap(bytes);
+        avatar_fetch.error = error;
+        avatar_fetch.done.store(true);
+      });
+    }
 
     const Uint32 background = SDL_MapRGB(screen->format, 20, 25, 35);
     const Uint32 panel = SDL_MapRGB(screen->format, 34, 43, 58);
@@ -490,11 +530,18 @@ int main() {
       }
       TextWrapped(screen, title_font, detail_video.title, 225, 150, 510, 40, 2,
                   Color(245, 247, 250));
-      Text(screen, body_font, "Uploader: " + detail_video.owner + "    Views: " + detail_video.views,
-           225, 242, Color(185, 198, 215));
+      if (avatar) {
+        SDL_Rect source = {0, 0, static_cast<Uint16>(avatar->w), static_cast<Uint16>(avatar->h)};
+        SDL_Rect destination = {225, 245, 48, 48};
+        SDL_SoftStretch(avatar, &source, screen, &destination);
+      }
+      Text(screen, body_font, "Uploader: " + detail_video.owner, 285, 248,
+           Color(185, 198, 215));
+      Text(screen, body_font, "Views: " + detail_video.views, 285, 272,
+           Color(185, 198, 215));
       Text(screen, body_font, "BVID: " + detail_video.bvid + "    CID: " + detail_video.cid,
-           42, 270, Color(185, 198, 215));
-      TextWrapped(screen, body_font, detail_video.description, 42, 310, 700, 24, 3,
+           42, 305, Color(185, 198, 215));
+      TextWrapped(screen, body_font, detail_video.description, 42, 335, 700, 24, 3,
                   Color(214, 225, 238));
     }
 
@@ -507,7 +554,9 @@ int main() {
 
   if (worker.joinable()) worker.join();
   if (cover_worker.joinable()) cover_worker.join();
+  if (avatar_worker.joinable()) avatar_worker.join();
   if (cover) SDL_FreeSurface(cover);
+  if (avatar) SDL_FreeSurface(avatar);
   TTF_CloseFont(body_font);
   TTF_CloseFont(title_font);
   curl_global_cleanup();

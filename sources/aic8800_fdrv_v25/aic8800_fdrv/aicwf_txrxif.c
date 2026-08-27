@@ -41,7 +41,7 @@ static bool aicwf_rx_lowmem(void)
     struct sysinfo i;
 
     si_meminfo(&i);
-    return i.freeram < 1024;
+    return i.freeram < 256;
 }
 
 #ifdef CONFIG_PREALLOC_RX_SKB

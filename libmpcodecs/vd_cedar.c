@@ -318,6 +318,7 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
     mp_image_t *mpi;
     int result;
     int valid_pictures;
+    int attempt;
 
     if (!ctx || !ctx->configured)
         return NULL;
@@ -325,19 +326,25 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
     if (data && len > 0 && submit_packet(ctx, sh, data, len) != 0)
         return NULL;
 
-    result = DecodeVideoStream(ctx->decoder, !data, 0, 0, 0);
-    if (data && result == VDECODE_RESULT_NO_BITSTREAM) {
-        /* Cedar consumes submitted frames in a separate SBM thread. */
-        usleep(1000);
-        result = DecodeVideoStream(ctx->decoder, 0, 0, 0, 0);
+    result = VDECODE_RESULT_NO_BITSTREAM;
+    valid_pictures = 0;
+    for (attempt = 0; attempt < 8; attempt++) {
+        result = DecodeVideoStream(ctx->decoder, !data, 0, 0, 0);
+        valid_pictures = ValidPictureNum(ctx->decoder, 0);
+        if (valid_pictures > 0)
+            break;
+        if (result == VDECODE_RESULT_NO_BITSTREAM) {
+            if (!data)
+                break;
+            usleep(1000);
+        }
     }
-    valid_pictures = ValidPictureNum(ctx->decoder, 0);
     if (ctx->trace_decode_calls <= 40 || (ctx->trace_decode_calls % 300) == 0)
         mp_msg(MSGT_DECVIDEO, MSGL_INFO,
-               "[cedar] decode #%u data=%d result=%d valid=%d\\n",
-               ctx->trace_decode_calls, data ? len : 0, result, valid_pictures);
-    if (result != VDECODE_RESULT_FRAME_DECODED &&
-        result != VDECODE_RESULT_KEYFRAME_DECODED)
+               "[cedar] decode #%u data=%d attempts=%d result=%d valid=%d\\n",
+               ctx->trace_decode_calls, data ? len : 0, attempt + 1, result,
+               valid_pictures);
+    if (valid_pictures <= 0)
         return NULL;
     picture = RequestPicture(ctx->decoder, 0);
     if (!picture) {

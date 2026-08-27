@@ -2,6 +2,7 @@
 #include <SDL/SDL_image.h>
 #include <SDL/SDL_ttf.h>
 #include <curl/curl.h>
+#include <qrencode.h>
 
 #include <atomic>
 #include <cstdlib>
@@ -38,12 +39,14 @@ const Item kItems[] = {
     {"Continue watching", "Local history adapter placeholder"},
     {"Search", "Keyboard and touch search adapter placeholder"},
     {"Network playback", "External Cedar or GStreamer player backend"},
+    {"Account / QR login", "Authorize Bilibili playback access"},
 };
 
 enum Page {
   kHome,
   kPopular,
   kDetail,
+  kLogin,
 };
 
 struct PopularFetch {
@@ -60,6 +63,23 @@ struct CoverFetch {
   std::string error;
   std::atomic<bool> done;
   CoverFetch() : done(false) {}
+};
+
+struct LoginFetch {
+  std::mutex mutex;
+  std::string qr_url;
+  std::string qr_key;
+  std::string error;
+  std::atomic<bool> done;
+  LoginFetch() : done(false) {}
+};
+
+struct LoginPoll {
+  std::mutex mutex;
+  std::string error;
+  bool success;
+  std::atomic<bool> done;
+  LoginPoll() : success(false), done(false) {}
 };
 
 SDL_Color Color(Uint8 r, Uint8 g, Uint8 b) {
@@ -289,6 +309,69 @@ bool FetchCover(const std::string& url, std::string* bytes, std::string* error) 
   return true;
 }
 
+bool FetchLoginQr(std::string* qr_url, std::string* qr_key, std::string* error) {
+  CURL* curl = curl_easy_init();
+  if (!curl) {
+    *error = "QR login: curl initialization failed";
+    return false;
+  }
+  std::string response;
+  curl_easy_setopt(curl, CURLOPT_URL,
+                   "https://passport.bilibili.com/x/passport-login/web/qrcode/generate");
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StoreCurl);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+  curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 8L);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 wiliwili-lite-f1c200s/0.4");
+  const CURLcode result = curl_easy_perform(curl);
+  long code = 0;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+  curl_easy_cleanup(curl);
+  *qr_url = JsonString(response, "url");
+  *qr_key = JsonString(response, "qrcode_key");
+  if (result != CURLE_OK || code != 200 || qr_url->empty() || qr_key->empty()) {
+    *error = "QR login request failed";
+    return false;
+  }
+  return true;
+}
+
+bool PollLoginQr(const std::string& qr_key, std::string* error) {
+  const char* home = std::getenv("HOME");
+  const std::string cookie_file =
+      std::string(home && home[0] ? home : "/tmp") + "/.wiliwili-lite-cookies.txt";
+  CURL* curl = curl_easy_init();
+  if (!curl) return false;
+  std::string response;
+  char* escaped_key = curl_easy_escape(curl, qr_key.c_str(), qr_key.size());
+  const std::string url = std::string(
+      "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=") +
+      (escaped_key ? escaped_key : "");
+  if (escaped_key) curl_free(escaped_key);
+  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StoreCurl);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+  curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookie_file.c_str());
+  curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookie_file.c_str());
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 wiliwili-lite-f1c200s/0.4");
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+  const CURLcode result = curl_easy_perform(curl);
+  curl_easy_cleanup(curl);
+  const size_t data = response.find("\"data\":{");
+  const std::string status_code =
+      data == std::string::npos ? "" : JsonNumber(response.substr(data), "code");
+  if (result != CURLE_OK) {
+    *error = "QR login polling failed";
+    return false;
+  }
+  if (status_code == "0") return true;
+  if (status_code == "86101") *error = "Waiting for scan";
+  else if (status_code == "86090") *error = "Confirm login on phone";
+  else if (status_code == "86038") *error = "QR code expired";
+  else *error = "QR login status " + status_code;
+  return false;
+}
+
 void StartPlayer(std::string* status) {
   const char* command = std::getenv("WILIWILI_LITE_PLAYER");
   if (!command || !command[0]) {
@@ -341,6 +424,14 @@ int main() {
   std::thread avatar_worker;
   bool avatar_active = false;
   SDL_Surface* avatar = 0;
+  LoginFetch login_fetch;
+  std::thread login_worker;
+  bool login_active = false;
+  QRcode* login_qr = 0;
+  Uint32 next_login_poll = 0;
+  LoginPoll login_poll;
+  std::thread login_poll_worker;
+  bool login_poll_active = false;
   bool running = true;
 
   while (running) {
@@ -378,6 +469,32 @@ int main() {
         SDL_FreeSurface(decoded);
       }
     }
+    if (login_active && login_fetch.done.load()) {
+      login_worker.join();
+      login_active = false;
+      std::lock_guard<std::mutex> lock(login_fetch.mutex);
+      if (login_fetch.error.empty() && !login_fetch.qr_url.empty()) {
+        if (login_qr) QRcode_free(login_qr);
+        login_qr = QRcode_encodeString8bit(login_fetch.qr_url.c_str(), 0, QR_ECLEVEL_M);
+        status = login_qr ? "Scan QR code with Bilibili, then confirm on phone" :
+                            "QR code generation failed";
+        next_login_poll = SDL_GetTicks() + 2000;
+      } else {
+        status = login_fetch.error.empty() ? "QR login request failed" : login_fetch.error;
+      }
+    }
+    if (login_poll_active && login_poll.done.load()) {
+      login_poll_worker.join();
+      login_poll_active = false;
+      std::lock_guard<std::mutex> lock(login_poll.mutex);
+      if (login_poll.success) {
+        status = "Login complete. Playback authorization cookie saved.";
+        if (login_qr) { QRcode_free(login_qr); login_qr = 0; }
+      } else {
+        status = login_poll.error;
+        next_login_poll = SDL_GetTicks() + 2000;
+      }
+    }
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -395,6 +512,8 @@ int main() {
             page = kPopular;
           } else if (page == kHome && selected == 3) {
             StartPlayer(&status);
+          } else if (page == kHome && selected == 4) {
+            page = kLogin;
           } else if (page == kPopular) {
             std::lock_guard<std::mutex> lock(fetch.mutex);
             if (!fetch.videos.empty()) {
@@ -420,6 +539,7 @@ int main() {
             if (row == selected) {
               if (row == 0) page = kPopular;
               else if (row == 3) StartPlayer(&status);
+              else if (row == 4) page = kLogin;
               else status = std::string(kItems[row].title) + " is not implemented yet";
             } else {
               selected = row;
@@ -465,6 +585,41 @@ int main() {
         fetch.done.store(true);
       });
       status = "Loading popular videos...";
+    }
+    if (page == kLogin && !login_active && !login_qr && !login_fetch.done.load()) {
+      login_active = true;
+      login_worker = std::thread([&login_fetch]() {
+        std::string qr_url;
+        std::string qr_key;
+        std::string error;
+        FetchLoginQr(&qr_url, &qr_key, &error);
+        std::lock_guard<std::mutex> lock(login_fetch.mutex);
+        login_fetch.qr_url = qr_url;
+        login_fetch.qr_key = qr_key;
+        login_fetch.error = error;
+        login_fetch.done.store(true);
+      });
+      status = "Requesting Bilibili QR login...";
+    }
+    if (page == kLogin && login_qr && !login_poll_active &&
+        SDL_GetTicks() >= next_login_poll) {
+      login_poll_active = true;
+      login_poll.error.clear();
+      login_poll.success = false;
+      login_poll.done.store(false);
+      std::string qr_key;
+      {
+        std::lock_guard<std::mutex> lock(login_fetch.mutex);
+        qr_key = login_fetch.qr_key;
+      }
+      login_poll_worker = std::thread([&login_poll, qr_key]() {
+        std::string error;
+        const bool success = PollLoginQr(qr_key, &error);
+        std::lock_guard<std::mutex> lock(login_poll.mutex);
+        login_poll.success = success;
+        login_poll.error = error;
+        login_poll.done.store(true);
+      });
     }
     if (page == kDetail && !cover_active && !cover && !detail_video.cover_url.empty() &&
         !cover_fetch.done.load()) {
@@ -521,6 +676,37 @@ int main() {
       }
       if (fetch_active) Text(screen, body_font, "Loading from Bilibili public API...", 44, 140,
                              Color(245, 247, 250));
+    } else if (page == kLogin) {
+      DrawHeader(screen, title_font, body_font, "Account login - Esc returns to home");
+      if (login_qr) {
+        const int modules = login_qr->width;
+        const int scale = modules <= 37 ? 8 : 6;
+        const int size = modules * scale;
+        const int origin_x = 62;
+        const int origin_y = 120;
+        const SDL_Rect background = {static_cast<Sint16>(origin_x - 12),
+                                     static_cast<Sint16>(origin_y - 12),
+                                     static_cast<Uint16>(size + 24),
+                                     static_cast<Uint16>(size + 24)};
+        Fill(screen, background, SDL_MapRGB(screen->format, 255, 255, 255));
+        const Uint32 black = SDL_MapRGB(screen->format, 0, 0, 0);
+        for (int y = 0; y < modules; ++y) {
+          for (int x = 0; x < modules; ++x) {
+            if (login_qr->data[y * modules + x] & 1) {
+              const SDL_Rect block = {static_cast<Sint16>(origin_x + x * scale),
+                                      static_cast<Sint16>(origin_y + y * scale),
+                                      static_cast<Uint16>(scale), static_cast<Uint16>(scale)};
+              Fill(screen, block, black);
+            }
+          }
+        }
+        Text(screen, title_font, "Scan with Bilibili", 390, 142, Color(245, 247, 250));
+        TextWrapped(screen, body_font, "After scanning, confirm the login on your phone. "
+                    "The session cookie stays only on this device.",
+                    390, 195, 340, 25, 4, Color(185, 198, 215));
+      } else {
+        Text(screen, body_font, "Loading QR code...", 62, 150, Color(245, 247, 250));
+      }
     } else {
       DrawHeader(screen, title_font, body_font, "Video detail - click or Esc to return");
       if (cover) {
@@ -555,8 +741,11 @@ int main() {
   if (worker.joinable()) worker.join();
   if (cover_worker.joinable()) cover_worker.join();
   if (avatar_worker.joinable()) avatar_worker.join();
+  if (login_worker.joinable()) login_worker.join();
+  if (login_poll_worker.joinable()) login_poll_worker.join();
   if (cover) SDL_FreeSurface(cover);
   if (avatar) SDL_FreeSurface(avatar);
+  if (login_qr) QRcode_free(login_qr);
   TTF_CloseFont(body_font);
   TTF_CloseFont(title_font);
   curl_global_cleanup();

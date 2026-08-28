@@ -7,6 +7,7 @@ MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cedar_hls_async_drain_20
 MPLAYER_ARGS=${MPLAYER_ARGS:--nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf}
 ROOT=${RUN_ROOT:-/root/roms/tv/run}
 POLL_SECONDS=${POLL_SECONDS:-1}
+START_AT_LATEST=${START_AT_LATEST:-1}
 RUN="$ROOT/hls-ts-live-relay-$$"
 FIFO="/tmp/hls-ts-live-relay-$$.ts"
 SEEN="$RUN/seen"
@@ -27,8 +28,12 @@ relay() {
     while :; do
         if refresh_segments; then
             if [ "$first" -eq 1 ]; then
-                # Start at the newest live segment, never at playlist history.
-                tail -n 1 "$RUN/segments" > "$RUN/new"
+                # Production live playback starts from the newest segment.
+                if [ "$START_AT_LATEST" -eq 1 ]; then
+                    tail -n 1 "$RUN/segments" > "$RUN/new"
+                else
+                    cp "$RUN/segments" "$RUN/new"
+                fi
                 first=0
             else
                 : > "$RUN/new"

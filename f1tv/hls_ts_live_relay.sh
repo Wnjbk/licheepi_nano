@@ -53,4 +53,4 @@ relay() {
 }
 relay &
 RELAY_PID=$!
-"$MPLAYER" -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf "$FIFO"
+"$MPLAYER" $MPLAYER_ARGS "$FIFO"

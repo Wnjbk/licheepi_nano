@@ -20,7 +20,7 @@ mkdir -p "$RUN"
 mkfifo "$FIFO"
 BASE=${URL%/*}/
 segment_url() { case "$1" in http://*) printf '%s\n' "$1";; *) printf '%s%s\n' "$BASE" "$1";; esac; }
-refresh_segments() { wget -q -O "$RUN/playlist.next" "$URL" || return 1; sed -n '/^[^#][^[:space:]]*$/p' "$RUN/playlist.next" > "$RUN/segments.next"; test -s "$RUN/segments.next" || return 1; mv "$RUN/segments.next" "$RUN/segments"; rm -f "$RUN/playlist.next"; }
+refresh_segments() { wget -q -O "$RUN/playlist.next" "$URL" || return 1; tr -d '\r' < "$RUN/playlist.next" | sed -n '/^[^#][^[:space:]]*$/p' > "$RUN/segments.next"; test -s "$RUN/segments.next" || return 1; mv "$RUN/segments.next" "$RUN/segments"; rm -f "$RUN/playlist.next"; }
 relay() {
     # Keep this descriptor open across segments so MPlayer never sees EOF.
     exec 3>"$FIFO"

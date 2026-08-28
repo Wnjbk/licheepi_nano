@@ -2,7 +2,7 @@
 # Stream each newly announced HLS TS segment directly into one Cedar FIFO.
 set -eu
 [ "$#" -eq 1 ] || { echo "usage: $0 <http-live-hls-playlist>" >&2; exit 2; }
-URL=$1
+MPLAYER=${MPLAYER_BIN:-/root/candidates/mplayer_cedar_20260825/mplayer-cedar}
 MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cedar_hls_async_drain_20260827/mplayer-cedar.80baf63.async-drain.stripped}
 MPLAYER_ARGS=${MPLAYER_ARGS:--nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf}
 ROOT=${RUN_ROOT:-/root/roms/tv/run}

@@ -166,13 +166,13 @@ static int init(sh_video_t *sh)
     ctx->fallback_pts = 0;
 
     config.eOutputPixelFormat = PIXEL_FORMAT_YUV_MB32_420;
-    config.nDeInterlaceHoldingFrameBufferNum = 1;
-    /* The display owns the previous picture until the next frame is mounted. */
- config.nDisplayHoldingFrameBufferNum = 2;
+    /* 720p must fit in the board's fixed 16 MiB CMA pool. */
+    config.nDeInterlaceHoldingFrameBufferNum = 0;
+    config.nDisplayHoldingFrameBufferNum = 1;
     config.nRotateHoldingFrameBufferNum = 0;
-    config.nDecodeSmoothFrameBufferNum = 2;
+    config.nDecodeSmoothFrameBufferNum = 0;
     config.memops = ctx->memops;
-    config.nVbvBufferSize = 2 * 1024 * 1024;
+    config.nVbvBufferSize = 1024 * 1024;
 
     if (InitializeVideoDecoder(ctx->decoder, &info, &config) != 0)
         goto fail;

@@ -177,7 +177,7 @@ static int control(uint32_t request, void *data)
     commands[0].type = DRM_SRGN_MOUNT_FB_YUV;
     commands[0].arg0 = (uint32_t)(uintptr_t)mpi->planes[0];
     commands[0].arg1 = (uint32_t)(uintptr_t)mpi->planes[1];
-    commands[0].arg2 = CEDAR_PHYS_MARKER;
+    commands[0].arg2 = 0;
     commit.size = 1;
     commit.data = (uint32_t)(uintptr_t)commands;
     if (drmIoctl(drm_fd, DRM_IOCTL_SRGN_ATOMIC_COMMIT, &commit) < 0)

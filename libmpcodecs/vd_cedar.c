@@ -360,8 +360,8 @@ static mp_image_t *decode(sh_video_t *sh, void *data, int len, int flags)
         return NULL;
     }
     /* The VO consumes priv and never dereferences the planes as CPU memory. */
-    mpi->planes[0] = (unsigned char *)(uintptr_t)(picture->phyYBufAddr + 0x40000000ULL);
-    mpi->planes[1] = (unsigned char *)(uintptr_t)(picture->phyCBufAddr + 0x40000000ULL);
+    mpi->planes[0] = picture->pData0;
+    mpi->planes[1] = picture->pData1;
     mpi->stride[0] = picture->nLineStride;
     mpi->stride[1] = picture->nLineStride;
     mpi->priv = picture;

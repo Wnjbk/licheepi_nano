@@ -14,8 +14,12 @@ RUN="$ROOT/hls-ts-live-relay-$$"
 FIFO="/tmp/hls-ts-live-relay-$$.ts"
 SEEN="$RUN/seen"
 RELAY_PID=
+MPLAYER_PID=
 cleanup() {
+    trap - EXIT INT TERM
+    [ -n "$MPLAYER_PID" ] && kill "$MPLAYER_PID" 2>/dev/null || true
     [ -n "$RELAY_PID" ] && kill "$RELAY_PID" 2>/dev/null || true
+    [ -n "$MPLAYER_PID" ] && wait "$MPLAYER_PID" 2>/dev/null || true
     [ -n "$RELAY_PID" ] && wait "$RELAY_PID" 2>/dev/null || true
     rm -f "$FIFO"
     rm -rf "$RUN"
@@ -73,4 +77,6 @@ relay() {
 }
 relay &
 RELAY_PID=$!
-"$MPLAYER" $MPLAYER_ARGS "$FIFO"
+"$MPLAYER" $MPLAYER_ARGS "$FIFO" &
+MPLAYER_PID=$!
+wait "$MPLAYER_PID"

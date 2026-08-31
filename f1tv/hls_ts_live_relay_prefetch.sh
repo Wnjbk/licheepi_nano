@@ -6,7 +6,7 @@ URL=$1
 MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cedar_hls_async_drain_20260827/mplayer-cedar.80baf63.async-drain.stripped}
 MPLAYER_ARGS=${MPLAYER_ARGS:--nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf}
 # Runtime queue only: never write HLS media or bookkeeping to persistent flash.
-ROOT=${RUN_ROOT:-/tmp}
+ROOT=/dev/shm
 POLL_SECONDS=${POLL_SECONDS:-1}
 START_AT_LATEST=${START_AT_LATEST:-1}
 SEEN_LIMIT=${SEEN_LIMIT:-16}
@@ -31,6 +31,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 case "$URL" in http://*) ;; *) echo "plain HTTP HLS only" >&2; exit 2;; esac
+mount | grep -Eq '(^tmpfs on /dev/shm | on /dev/shm type tmpfs)' || {
+    echo "/dev/shm is not a tmpfs; refusing persistent HLS cache" >&2
+    exit 1
+}
 mkdir -p "$RUN/q"
 : > "$SEEN"
 mkfifo "$FIFO"

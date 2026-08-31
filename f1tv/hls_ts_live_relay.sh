@@ -14,7 +14,12 @@ RUN="$ROOT/hls-ts-live-relay-$$"
 FIFO="/tmp/hls-ts-live-relay-$$.ts"
 SEEN="$RUN/seen"
 RELAY_PID=
-cleanup() { [ -n "$RELAY_PID" ] && kill "$RELAY_PID" 2>/dev/null || true; rm -f "$FIFO"; rm -rf "$RUN"; }
+cleanup() {
+    [ -n "$RELAY_PID" ] && kill "$RELAY_PID" 2>/dev/null || true
+    [ -n "$RELAY_PID" ] && wait "$RELAY_PID" 2>/dev/null || true
+    rm -f "$FIFO"
+    rm -rf "$RUN"
+}
 trap cleanup EXIT INT TERM
 case "$URL" in http://*) ;; *) echo "plain HTTP HLS only" >&2; exit 2;; esac
 mkdir -p "$RUN"

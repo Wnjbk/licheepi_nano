@@ -9,7 +9,7 @@ ROOT=${RUN_ROOT:-/root/roms/tv/run}
 POLL_SECONDS=${POLL_SECONDS:-1}
 START_AT_LATEST=${START_AT_LATEST:-1}
 SEEN_LIMIT=${SEEN_LIMIT:-16}
-SEGMENT_RETRIES=${SEGMENT_RETRIES:-3}
+SEGMENT_RETRIES=${SEGMENT_RETRIES:-2}
 PREFETCH_SEGMENTS=${PREFETCH_SEGMENTS:-2}
 # Do not start on the playlist's still-being-written tail segment. This trades
 # one segment of latency for a complete initial queue and continuous playback.
@@ -49,7 +49,7 @@ remember_segment() {
 }
 fetch_segment() {
     tries=0
-    while ! wget -q -T 8 -t 1 -O "$2.part" "$(segment_url "$1")"; do
+    while ! wget -q -T 5 -t 1 -O "$2.part" "$(segment_url "$1")"; do
         rm -f "$2.part"
         tries=$((tries + 1))
         [ "$tries" -ge "$SEGMENT_RETRIES" ] && return 1

@@ -5,7 +5,8 @@ set -eu
 URL=$1
 MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cedar_hls_async_drain_20260827/mplayer-cedar.80baf63.async-drain.stripped}
 MPLAYER_ARGS=${MPLAYER_ARGS:--nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf}
-ROOT=${RUN_ROOT:-/root/roms/tv/run}
+# Runtime queue only: never write HLS media or bookkeeping to persistent flash.
+ROOT=${RUN_ROOT:-/tmp}
 POLL_SECONDS=${POLL_SECONDS:-1}
 START_AT_LATEST=${START_AT_LATEST:-1}
 SEEN_LIMIT=${SEEN_LIMIT:-16}
@@ -15,7 +16,7 @@ PREFETCH_SEGMENTS=${PREFETCH_SEGMENTS:-2}
 # one segment of latency for a complete initial queue and continuous playback.
 START_BEHIND_SEGMENTS=${START_BEHIND_SEGMENTS:-1}
 RUN="$ROOT/hls-ts-live-relay-prefetch-$$"
-FIFO="/tmp/hls-ts-live-relay-prefetch-$$.ts"
+FIFO="$RUN/input.ts"
 SEEN="$RUN/seen"
 RELAY_PID=
 MPLAYER_PID=

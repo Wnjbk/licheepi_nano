@@ -3,16 +3,16 @@
 set -eu
 [ "$#" -eq 1 ] || { echo "usage: $0 <http-live-hls-playlist>" >&2; exit 2; }
 URL=$1
-MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cedar_hls_async_drain_20260827/mplayer-cedar.80baf63.async-drain.stripped}
+MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cma32_pdata_20260830/mplayer-cedar-pdata}
 # Small RAM input cache smooths HLS segment handoff without disk buffering.
-MPLAYER_ARGS=${MPLAYER_ARGS:--cache 4096 -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf}
+MPLAYER_ARGS=${MPLAYER_ARGS:--cache 128 -cache-min 5 -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf -framedrop}
 # Runtime queue only: never write HLS media or bookkeeping to persistent flash.
 ROOT=/dev/shm
 POLL_SECONDS=${POLL_SECONDS:-1}
 START_AT_LATEST=${START_AT_LATEST:-1}
 SEEN_LIMIT=${SEEN_LIMIT:-16}
 SEGMENT_RETRIES=${SEGMENT_RETRIES:-2}
-PREFETCH_SEGMENTS=${PREFETCH_SEGMENTS:-2}
+PREFETCH_SEGMENTS=${PREFETCH_SEGMENTS:-1}
 # Do not start on the playlist's still-being-written tail segment. This trades
 # one segment of latency for a complete initial queue and continuous playback.
 START_BEHIND_SEGMENTS=${START_BEHIND_SEGMENTS:-1}
@@ -20,12 +20,15 @@ RUN="$ROOT/hls-ts-live-relay-prefetch-$$"
 FIFO="$RUN/input.ts"
 SEEN="$RUN/seen"
 RELAY_PID=
+WRITER_PID=
 MPLAYER_PID=
 cleanup() {
     trap - EXIT INT TERM
     [ -n "$MPLAYER_PID" ] && kill "$MPLAYER_PID" 2>/dev/null || true
+    [ -n "$WRITER_PID" ] && kill "$WRITER_PID" 2>/dev/null || true
     [ -n "$RELAY_PID" ] && kill "$RELAY_PID" 2>/dev/null || true
     [ -n "$MPLAYER_PID" ] && wait "$MPLAYER_PID" 2>/dev/null || true
+    [ -n "$WRITER_PID" ] && wait "$WRITER_PID" 2>/dev/null || true
     [ -n "$RELAY_PID" ] && wait "$RELAY_PID" 2>/dev/null || true
     rm -f "$FIFO"
     rm -rf "$RUN"
@@ -94,6 +97,11 @@ downloader() {
                 if fetch_segment "$segment" "$file"; then
                     remember_segment "$segment"
                     count=$((count + 1))
+                else
+                    # A live playlist may retain an expired URL briefly.
+                    # Never let that stale entry block progression to newer media.
+                    echo "skip unavailable HLS segment: $segment" >&2
+                    remember_segment "$segment"
                 fi
             done < "$RUN/new"
         fi

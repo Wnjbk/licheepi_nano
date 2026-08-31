@@ -4,7 +4,8 @@ set -eu
 [ "$#" -eq 1 ] || { echo "usage: $0 <http-live-hls-playlist>" >&2; exit 2; }
 URL=$1
 MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cedar_hls_async_drain_20260827/mplayer-cedar.80baf63.async-drain.stripped}
-MPLAYER_ARGS=${MPLAYER_ARGS:--nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf}
+# Small RAM input cache smooths HLS segment handoff without disk buffering.
+MPLAYER_ARGS=${MPLAYER_ARGS:--cache 4096 -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf}
 # Runtime queue only: never write HLS media or bookkeeping to persistent flash.
 ROOT=/dev/shm
 POLL_SECONDS=${POLL_SECONDS:-1}

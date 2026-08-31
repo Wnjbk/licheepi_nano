@@ -11,6 +11,9 @@ START_AT_LATEST=${START_AT_LATEST:-1}
 SEEN_LIMIT=${SEEN_LIMIT:-16}
 SEGMENT_RETRIES=${SEGMENT_RETRIES:-3}
 PREFETCH_SEGMENTS=${PREFETCH_SEGMENTS:-2}
+# Do not start on the playlist's still-being-written tail segment. This trades
+# one segment of latency for a complete initial queue and continuous playback.
+START_BEHIND_SEGMENTS=${START_BEHIND_SEGMENTS:-1}
 RUN="$ROOT/hls-ts-live-relay-prefetch-$$"
 FIFO="/tmp/hls-ts-live-relay-prefetch-$$.ts"
 SEEN="$RUN/seen"
@@ -46,7 +49,7 @@ remember_segment() {
 }
 fetch_segment() {
     tries=0
-    while ! wget -q -O "$2.part" "$(segment_url "$1")"; do
+    while ! wget -q -T 8 -t 1 -O "$2.part" "$(segment_url "$1")"; do
         rm -f "$2.part"
         tries=$((tries + 1))
         [ "$tries" -ge "$SEGMENT_RETRIES" ] && return 1
@@ -64,7 +67,10 @@ downloader() {
         if refresh_segments; then
             count=$(queued_count)
             if [ "$first" -eq 1 ] && [ "$START_AT_LATEST" -eq 1 ]; then
-                tail -n "$PREFETCH_SEGMENTS" "$RUN/segments" > "$RUN/new"
+                # For a three-entry playlist and a two-segment queue, enqueue
+                # entries one and two, leaving the not-yet-final entry to poll.
+                total=$((PREFETCH_SEGMENTS + START_BEHIND_SEGMENTS))
+                tail -n "$total" "$RUN/segments" | head -n "$PREFETCH_SEGMENTS" > "$RUN/new"
                 first=0
             else
                 : > "$RUN/new"

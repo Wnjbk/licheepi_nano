@@ -1,18 +1,22 @@
 #!/bin/sh
-# Shell-only HLS relay with a bounded one-segment lookahead queue.
+# Shell-only HLS relay with a bounded two-segment jitter buffer.
 set -eu
 [ "$#" -eq 1 ] || { echo "usage: $0 <http-live-hls-playlist>" >&2; exit 2; }
 URL=$1
 MPLAYER=${MPLAYER_BIN:-/root/roms/tv/candidates/mplayer_cma32_pdata_20260830/mplayer-cedar-pdata}
-# Small RAM input cache smooths HLS segment handoff without disk buffering.
-MPLAYER_ARGS=${MPLAYER_ARGS:--cache 128 -cache-min 5 -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf -framedrop}
+# Keep a small player-side cache in RAM. The queue below absorbs full HLS
+# segments, so this is intentionally much smaller than a media segment.
+MPLAYER_ARGS=${MPLAYER_ARGS:--cache 512 -cache-min 10 -nosound -vc cedarh264 -vo cedar_drm:fit -demuxer lavf -framedrop}
 # Runtime queue only: never write HLS media or bookkeeping to persistent flash.
 ROOT=/dev/shm
 POLL_SECONDS=${POLL_SECONDS:-1}
 START_AT_LATEST=${START_AT_LATEST:-1}
 SEEN_LIMIT=${SEEN_LIMIT:-16}
 SEGMENT_RETRIES=${SEGMENT_RETRIES:-2}
-PREFETCH_SEGMENTS=${PREFETCH_SEGMENTS:-1}
+# CCTV-1 uses 10-second TS files. Keeping the current writer file plus one
+# downloaded successor masks a single delayed playlist poll or segment fetch.
+# This is bounded RAM storage, never persistent flash storage.
+PREFETCH_SEGMENTS=${PREFETCH_SEGMENTS:-2}
 # Do not start on the playlist's still-being-written tail segment. This trades
 # one segment of latency for a complete initial queue and continuous playback.
 START_BEHIND_SEGMENTS=${START_BEHIND_SEGMENTS:-1}

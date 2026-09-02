@@ -3,7 +3,7 @@
 # Ensure that locale settings do not interfere with shell commands.
 export LC_ALL = C
 
-CONFIGURATION = --prefix=/usr --confdir=/etc --target=arm-buildroot-linux-gnueabi --host-cc=/usr/bin/gcc --cc=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-gcc --as=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-as --charset=UTF-8 --extra-cflags=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  -Os  -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include --extra-ldflags= --enable-fbdev --enable-alsa --disable-big-endian --enable-decoder=apng --enable-encoder=apng --enable-decoder=tdsc --enable-sdl --with-sdl-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/sdl-config --enable-freetype --with-freetype-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/freetype-config --disable-fontconfig --disable-enca --disable-fribidi --disable-iconv --disable-smb --disable-bluray --disable-libcdio --enable-mplayer --enable-mencoder --enable-faad --disable-mp3lame --enable-mad --disable-live --enable-gif --disable-librtmp --disable-speex --disable-liblzo --enable-armv5te --disable-mmx --yasm= --disable-mmxext --disable-sse --disable-sse2 --disable-sse3 --disable-ssse3 --disable-sse4 --disable-sse42 --disable-avx --disable-avx2 --enable-cross-compile --disable-ivtv --enable-dynamic-plugins --enable-inet6
+CONFIGURATION = --prefix=/usr --confdir=/etc --target=arm-buildroot-linux-gnueabi --host-cc=/usr/bin/gcc --cc=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-gcc --as=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-as --charset=UTF-8 --extra-cflags=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -Os -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include --extra-ldflags= --enable-fbdev --enable-alsa --disable-big-endian --enable-decoder=apng --enable-encoder=apng --enable-decoder=tdsc --enable-sdl --with-sdl-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/sdl-config --enable-freetype --with-freetype-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/freetype-config --disable-fontconfig --disable-enca --disable-fribidi --disable-iconv --disable-smb --disable-bluray --disable-libcdio --enable-mplayer --enable-mencoder --enable-faad --disable-mp3lame --enable-mad --disable-live --enable-gif --disable-librtmp --disable-speex --disable-liblzo --enable-armv5te --disable-mmx --yasm= --disable-mmxext --disable-sse --disable-sse2 --disable-sse3 --disable-ssse3 --disable-sse4 --disable-sse42 --disable-avx --disable-avx2 --enable-cross-compile --disable-ivtv --enable-dynamic-plugins --enable-inet6 --enable-openssl --extra-libs-mplayer=-lSDL -L/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -Wl,-rpath-link,/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -ldrm -lMemAdapter -lvdecoder -lVE -lvideoengine -lcdc_base
 
 CHARSET = UTF-8
 DOC_LANGS = en
@@ -33,8 +33,8 @@ INSTALL = install
 INSTALLSTRIP = 
 WINDRES = windres
 
-CFLAGS   = -Wundef  -Wstrict-prototypes -Wmissing-prototypes -Wdisabled-optimization -Wno-pointer-sign -Wdeclaration-after-statement -std=gnu99  -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ISOC99_SOURCE -I. -Iffmpeg -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  -Os  -fno-tree-vectorize -fno-asynchronous-unwind-tables -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -Os -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -marm    -DZLIB_CONST
-CXXFLAGS = -Wundef   -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ISOC99_SOURCE -I. -Iffmpeg -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  -Os  -fno-tree-vectorize -fno-asynchronous-unwind-tables -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -Os -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -marm    -DZLIB_CONST 
+CFLAGS   = -Wundef -Wall -Wno-switch -Wno-parentheses -Wpointer-arith -Wredundant-decls -Werror=format-security -Wstrict-prototypes -Wmissing-prototypes -Wdisabled-optimization -Wno-pointer-sign -Wdeclaration-after-statement -std=gnu99 -Werror-implicit-function-declaration -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ISOC99_SOURCE -I. -Iffmpeg -O4   -pipe -ffast-math -fomit-frame-pointer -fno-tree-vectorize -fno-asynchronous-unwind-tables -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -Os -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include -marm    -DZLIB_CONST
+CXXFLAGS = -Wundef -Wall -Wno-switch -Wno-parentheses -Wpointer-arith -Wredundant-decls -Werror=format-security  -D_POSIX_C_SOURCE=200112 -D_XOPEN_SOURCE=600 -D_ISOC99_SOURCE -I. -Iffmpeg -O4   -pipe -ffast-math -fomit-frame-pointer -fno-tree-vectorize -fno-asynchronous-unwind-tables -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -Os -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include -marm    -DZLIB_CONST 
 CC_DEPFLAGS = -MMD -MP
 
 CFLAGS_DHAHELPER         = 
@@ -42,8 +42,8 @@ CFLAGS_NO_OMIT_LEAF_FRAME_POINTER =
 CFLAGS_STACKREALIGN      = 
 CFLAGS_SVGALIB_HELPER    = 
 
-EXTRALIBS          =  -Wl,--version-script,binary.ver -Wl,-z,noexecstack   -lncurses -lrt -lpng -lz -ljpeg -lgif -lasound -ldl -lpthread -lz -lmad -lmpg123 -lfaad -lpthread -ldl -rdynamic -lm  
-EXTRALIBS_MPLAYER  =  -lSDL -L/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -Wl,-rpath-link,/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -ldrm -lMemAdapter -lvdecoder -lVE -lvideoengine -lcdc_base
+EXTRALIBS          =  -Wl,--version-script,binary.ver -Wl,-z,noexecstack  -ffast-math  -lncurses -lrt -lssl -lcrypto -lpng -lz -ljpeg -lgif -lasound -ldl -lpthread -lz -lmad -lmpg123 -lfaad -lpthread -ldl -rdynamic -L/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -lm  
+EXTRALIBS_MPLAYER  =  -lSDL -Wl,-rpath-link,/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -ldrm -lMemAdapter -lvdecoder -lVE -lvideoengine -lcdc_base -lSDL
 EXTRALIBS_MENCODER = 
 
 MP_MSG_LIBS =  -lncurses 
@@ -324,7 +324,7 @@ CONFIG_SELECT_FILTER = no
 
 CONFIG_STATIC = yes
 SRC_PATH      = .
-DST_PATH      = /home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/build/mplayer-1.3.0/ffmpeg
+DST_PATH      = /home/wnk/F1C200S_host_archive/mplayer_cedar_vod_https_20260902/ffmpeg
 LIBPREF       = lib
 LIBSUF        = .a
 FULLNAME      = $(NAME)$(BUILDSUF)
@@ -415,6 +415,7 @@ CONFIG_BZLIB    = no
 CONFIG_CRYSTALHD= no
 CONFIG_ENCODERS = yes
 CONFIG_GNUTLS   = no
+CONFIG_OPENSSL  = yes
 CONFIG_GPL      = yes
 CONFIG_ICONV    = no
 CONFIG_MLIB     = no
@@ -1500,7 +1501,7 @@ CONFIG_GOPHER_PROTOCOL = yes
 CONFIG_HLS_PROTOCOL = yes
 CONFIG_HTTP_PROTOCOL = yes
 CONFIG_HTTPPROXY_PROTOCOL = yes
-CONFIG_HTTPS_PROTOCOL = no
+CONFIG_HTTPS_PROTOCOL = yes
 CONFIG_ICECAST_PROTOCOL = yes
 CONFIG_MMSH_PROTOCOL = yes
 CONFIG_MMST_PROTOCOL = yes
@@ -1520,7 +1521,7 @@ CONFIG_TCP_PROTOCOL = yes
 CONFIG_TLS_SCHANNEL_PROTOCOL = no
 CONFIG_TLS_SECURETRANSPORT_PROTOCOL = no
 CONFIG_TLS_GNUTLS_PROTOCOL = no
-CONFIG_TLS_OPENSSL_PROTOCOL = no
+CONFIG_TLS_OPENSSL_PROTOCOL = yes
 CONFIG_UDP_PROTOCOL = yes
 CONFIG_UDPLITE_PROTOCOL = yes
 CONFIG_UNIX_PROTOCOL = yes

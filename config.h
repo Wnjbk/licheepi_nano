@@ -36,7 +36,7 @@
 
 
 
-#define CONFIGURATION "--prefix=/usr --confdir=/etc --target=arm-buildroot-linux-gnueabi --host-cc=/usr/bin/gcc --cc=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-gcc --as=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-as --charset=UTF-8 --extra-cflags=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  -Os  -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include --extra-ldflags= --enable-fbdev --enable-alsa --disable-big-endian --enable-decoder=apng --enable-encoder=apng --enable-decoder=tdsc --enable-sdl --with-sdl-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/sdl-config --enable-freetype --with-freetype-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/freetype-config --disable-fontconfig --disable-enca --disable-fribidi --disable-iconv --disable-smb --disable-bluray --disable-libcdio --enable-mplayer --enable-mencoder --enable-faad --disable-mp3lame --enable-mad --disable-live --enable-gif --disable-librtmp --disable-speex --disable-liblzo --enable-armv5te --disable-mmx --yasm= --disable-mmxext --disable-sse --disable-sse2 --disable-sse3 --disable-ssse3 --disable-sse4 --disable-sse42 --disable-avx --disable-avx2 --enable-cross-compile --disable-ivtv --enable-dynamic-plugins --enable-inet6"
+#define CONFIGURATION "--prefix=/usr --confdir=/etc --target=arm-buildroot-linux-gnueabi --host-cc=/usr/bin/gcc --cc=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-gcc --as=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-as --charset=UTF-8 --extra-cflags=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -Os -I/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/include --extra-ldflags= --enable-fbdev --enable-alsa --disable-big-endian --enable-decoder=apng --enable-encoder=apng --enable-decoder=tdsc --enable-sdl --with-sdl-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/sdl-config --enable-freetype --with-freetype-config=/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/arm-buildroot-linux-gnueabi/sysroot/usr/bin/freetype-config --disable-fontconfig --disable-enca --disable-fribidi --disable-iconv --disable-smb --disable-bluray --disable-libcdio --enable-mplayer --enable-mencoder --enable-faad --disable-mp3lame --enable-mad --disable-live --enable-gif --disable-librtmp --disable-speex --disable-liblzo --enable-armv5te --disable-mmx --yasm= --disable-mmxext --disable-sse --disable-sse2 --disable-sse3 --disable-ssse3 --disable-sse4 --disable-sse42 --disable-avx --disable-avx2 --enable-cross-compile --disable-ivtv --enable-dynamic-plugins --enable-inet6 --enable-openssl --extra-libs-mplayer=-lSDL -L/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -Wl,-rpath-link,/home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/target/usr/lib -ldrm -lMemAdapter -lvdecoder -lVE -lvideoengine -lcdc_base"
 
 #define MPLAYER_DATADIR "/usr/share/mplayer"
 #define MPLAYER_CONFDIR "/etc"
@@ -394,7 +394,7 @@
 #define HAVE_CLOSESOCKET 0
 #define CONFIG_FTP 1
 #define HAVE_AF_INET6 1
-#define HAVE_INET_ATON 1
+#define HAVE_INET_ATON 0
 #define HAVE_INET_PTON 1
 #undef CONFIG_LIVE555
 #undef CONFIG_LIBNEMESI
@@ -606,7 +606,7 @@
 #define CONFIG_LIBMODPLUG 0
 #define CONFIG_LIBVORBIS 0
 #define CONFIG_MEMORY_POISONING 0
-#define CONFIG_OPENSSL 0
+#define CONFIG_OPENSSL 1
 #define CONFIG_POWERPC_PERF 0
 /* For now prefer speed over avoiding potential invalid reads */
 #define CONFIG_SAFE_BITSTREAM_READER 0
@@ -1778,7 +1778,7 @@
 #define CONFIG_HLS_PROTOCOL 1
 #define CONFIG_HTTP_PROTOCOL 1
 #define CONFIG_HTTPPROXY_PROTOCOL 1
-#define CONFIG_HTTPS_PROTOCOL 0
+#define CONFIG_HTTPS_PROTOCOL 1
 #define CONFIG_ICECAST_PROTOCOL 1
 #define CONFIG_MMSH_PROTOCOL 1
 #define CONFIG_MMST_PROTOCOL 1
@@ -1798,7 +1798,7 @@
 #define CONFIG_TLS_SCHANNEL_PROTOCOL 0
 #define CONFIG_TLS_SECURETRANSPORT_PROTOCOL 0
 #define CONFIG_TLS_GNUTLS_PROTOCOL 0
-#define CONFIG_TLS_OPENSSL_PROTOCOL 0
+#define CONFIG_TLS_OPENSSL_PROTOCOL 1
 #define CONFIG_UDP_PROTOCOL 1
 #define CONFIG_UDPLITE_PROTOCOL 1
 #define CONFIG_UNIX_PROTOCOL 1

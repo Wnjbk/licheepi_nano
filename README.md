@@ -13,8 +13,8 @@ buffers.  It is a candidate, not a normal boot service or a stable baseline.
 
 The program carries the small DRM dumb-buffer UAPI subset it needs, so the
 userspace build does not include kernel-internal headers. Build on the Ubuntu
-host with `make`. The Makefile explicitly targets the board's ARM926EJ-S
-(`armv5te`) CPU; do not use the Linaro toolchain default target. Deploy only
+host with `make`. It uses Buildroot's ARM926EJ-S soft-float toolchain; do not
+use the Linaro kernel toolchain default target for this program. Deploy only
 to a versioned candidate
 directory, verify the binary checksum, stop GMenu2X for the isolated test,
 and restore it after the test.

@@ -1,6 +1,6 @@
 LVGL_DIR := /home/wnk/F1C200S_host_archive/wiliwili_lite_lvgl_host_poc_20260905/third_party/lvgl
 BUILD_DIR := build-arm
-TOOLCHAIN := /opt/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabi/bin/arm-linux-gnueabi-
+TOOLCHAIN := /home/wnk/LicheePi_Nano/buildroot-2018.02.11/output/host/bin/arm-buildroot-linux-gnueabi-
 
 CC := $(TOOLCHAIN)gcc
 CXX := $(TOOLCHAIN)g++

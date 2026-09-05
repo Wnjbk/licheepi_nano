@@ -192,7 +192,8 @@ void BuildUi() {
   lv_obj_set_style_text_color(g_clock, lv_color_hex(0x92d9a4), 0);
   lv_obj_align(g_clock, LV_ALIGN_BOTTOM_LEFT, 32, -28);
   Tick(0);
-  lv_timer_create(Tick, 1000, 0);
+  const bool animate_clock = false;
+  if (animate_clock) lv_timer_create(Tick, 1000, 0);
 }
 
 }  // namespace

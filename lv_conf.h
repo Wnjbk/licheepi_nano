@@ -5,6 +5,7 @@
 #define LV_MEM_SIZE (96U * 1024U)
 #define LV_USE_LOG 0
 #define LV_USE_PERF_MONITOR 0
+#define LV_DISP_DEF_REFR_PERIOD 100
 #define LV_FONT_MONTSERRAT_14 1
 
 #endif

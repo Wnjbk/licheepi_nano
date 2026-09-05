@@ -16,6 +16,7 @@ extern "C" {
 
 #define DRM_SRGN_ATOMIC_COMMIT 0x00
 #define DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_NORMAL 0x00
+#define DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_ALPHA 0x03
 #define DRM_SRGN_ATOMIC_COMMIT_MOUNT_CONFIG_RGB565_OSD 0x06
 
 struct drm_srgn_atomic_commit_data {
@@ -39,6 +40,7 @@ namespace {
 const uint32_t kWidth = 640;
 const uint32_t kHeight = 480;
 const uint32_t kLayer = 1;
+const uint32_t kOverlayAlpha = 160;
 
 struct Buffer {
   uint32_t handle;
@@ -207,7 +209,7 @@ int main() {
   }
   g_stride = first.pitch;
 
-  drm_srgn_atomic_commit_data setup[2];
+  drm_srgn_atomic_commit_data setup[3];
   memset(setup, 0, sizeof(setup));
   setup[0].layer_id = kLayer;
   setup[0].type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_CONFIG_RGB565_OSD;
@@ -215,9 +217,12 @@ int main() {
   setup[0].arg1 = 0;
   setup[0].arg2 = g_stride;
   setup[1].layer_id = kLayer;
-  setup[1].type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_NORMAL;
-  setup[1].arg0 = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(first.data));
-  if (Submit(setup, 2) != 0) {
+  setup[1].type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_ALPHA;
+  setup[1].arg0 = kOverlayAlpha;
+  setup[2].layer_id = kLayer;
+  setup[2].type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_NORMAL;
+  setup[2].arg0 = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(first.data));
+  if (Submit(setup, 3) != 0) {
     perror("configure RGB565 OSD");
     DestroyBuffer(&second);
     DestroyBuffer(&first);

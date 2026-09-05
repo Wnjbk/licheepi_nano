@@ -52,7 +52,6 @@ struct Buffer {
 int g_drm = -1;
 uint32_t g_stride = 0;
 uint32_t g_ticks = 0;
-uint32_t g_flushes = 0;
 lv_obj_t* g_clock = 0;
 volatile sig_atomic_t g_running = 1;
 volatile sig_atomic_t g_flush_failed = 0;
@@ -117,11 +116,7 @@ void Flush(lv_disp_drv_t* display, const lv_area_t*, lv_color_t* colors) {
   command.layer_id = kLayer;
   command.type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_NORMAL;
   command.arg0 = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(colors));
-  if (Submit(&command, 1) != 0) {
-    g_flush_failed = 1;
-  } else {
-    ++g_flushes;
-  }
+  if (Submit(&command, 1) != 0) g_flush_failed = 1;
   lv_disp_flush_ready(display);
 }
 
@@ -141,10 +136,8 @@ void DisableOsd() {
 void Tick(lv_timer_t*) {
   ++g_ticks;
   char text[64];
-  snprintf(text, sizeof(text), "LVGL DE OSD  %02u:%02u  %u FPS",
-           g_ticks / 60, g_ticks % 60, g_flushes);
+  snprintf(text, sizeof(text), "LVGL DE OSD  %02u:%02u", g_ticks / 60, g_ticks % 60);
   lv_label_set_text(g_clock, text);
-  g_flushes = 0;
 }
 
 void BuildUi() {
@@ -178,7 +171,7 @@ void BuildUi() {
   lv_obj_set_style_text_color(g_clock, lv_color_hex(0x92d9a4), 0);
   lv_obj_align(g_clock, LV_ALIGN_BOTTOM_LEFT, 32, -28);
   Tick(0);
-  lv_timer_create(Tick, 1000, 0);
+  lv_timer_create(Tick, 16, 0);
 }
 
 }  // namespace

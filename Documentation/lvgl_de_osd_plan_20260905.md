@@ -41,7 +41,10 @@ two composition pipes.
   set layer size, line width, RGB565 format, pipe/priority, or enable state.
 * Global alpha is already available through `MOUNT_SET_ALPHA`.  For the OSD,
   use layer 1, priority 1, pipe 1, and alpha less than 255.  This avoids the
-  documented lowest-plane alpha limitation of the sun4i backend.
+  documented lowest-plane alpha limitation of the sun4i backend.  RGB565 has
+  global alpha only, so the initial path can make an OSD rectangle translucent
+  but cannot provide transparent pixels inside that rectangle.  A pixel-alpha
+  ARGB format is a separate, later candidate.
 
 ## Candidate Contract
 
@@ -51,7 +54,8 @@ The first code candidate may add only a narrow SRGN RGB OSD configure ioctl:
    active display bounds, and the requested pixel format is RGB565.
 2. Program that normal layer's size, coordinate, line width, RGB565 format,
    pipe, priority, and enable bit.  Clear YUV/frontend flags for that OSD
-   layer only.
+   layer only. A zero width and height request disables layer 1 before its
+   CMA/GEM buffers are released.
 3. Keep `MOUNT_FB_NORMAL` as the address-only page-flip operation.  LVGL's
    flush callback will submit the inactive DMA/CMA buffer address after
    drawing, with no CPU composition or Cedar-buffer copy.
@@ -72,4 +76,3 @@ recorded.
 3. Show OSD with global alpha over Cedar layer 0 and verify both remain live.
 4. Only after the above succeeds, perform three cold-boot regression cycles
    covering HDMI, normal WLAN, AIC registration, wlan1, and Miracast display.
-

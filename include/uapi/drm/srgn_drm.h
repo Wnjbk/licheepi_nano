@@ -33,6 +33,9 @@
 // arg1: crop_h << 16 | crop_w, centered tiled source crop.
 // arg2: out_h << 16 | out_w, frontend output/backend layer size at coord 0,0.
 #define DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_YUV_CENTER_CROP_VIEW 0x05
+// arg0: height << 16 | width. arg1: y << 16 | x (signed 16-bit coordinate).
+// arg2: RGB565 stride in bytes. Only layer 1 is reserved for the LVGL OSD.
+#define DRM_SRGN_ATOMIC_COMMIT_MOUNT_CONFIG_RGB565_OSD 0x06
 
 
 #define DRM_IOCTL_SRGN_ATOMIC_COMMIT DRM_IOW(DRM_COMMAND_BASE + DRM_SRGN_ATOMIC_COMMIT, struct drm_srgn_atomic_commit)

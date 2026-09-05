@@ -249,6 +249,59 @@ static int srgn_atomic_commit_mount_set_alpha(struct sun4i_backend *backend, str
 	return 0;
 }
 
+/*
+ * Cedar owns frontend/YUV layer 0. Keep the LVGL RGB565 OSD on layer 1 so
+ * page flips only update a normal backend framebuffer address.
+ */
+static int srgn_atomic_commit_mount_config_rgb565_osd(
+	struct sun4i_backend *backend,
+	struct drm_srgn_atomic_commit_data *data)
+{
+	u32 layer = data->layer_id;
+	u32 width = data->arg0 & 0xffff;
+	u32 height = (data->arg0 >> 16) & 0xffff;
+	u32 stride = data->arg2;
+
+	if (!backend || layer != 1)
+		return -EINVAL;
+
+	if (!width && !height) {
+		sun4i_backend_layer_enable(backend, layer, false);
+		return 0;
+	}
+
+	if (!width || !height ||
+	    width > 4096 || height > 4096 ||
+	    stride < width * 2 || stride > 8192 || (stride & 1))
+		return -EINVAL;
+
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_LAYSIZE_REG(layer),
+		     SUN4I_BACKEND_LAYSIZE(width, height));
+	regmap_write(backend->engine.regs, SUN4I_BACKEND_LAYCOOR_REG(layer),
+		     data->arg1);
+	regmap_write(backend->engine.regs,
+		     SUN4I_BACKEND_LAYLINEWIDTH_REG(layer), stride * 8);
+
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG0(layer),
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_VDOEN |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_YUVEN |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PIPESEL_MASK |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL_MASK |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_MASK |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA_EN,
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PIPESEL(1) |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_PRISEL(1) |
+			   SUN4I_BACKEND_ATTCTL_REG0_LAY_GLBALPHA(255));
+	regmap_update_bits(backend->engine.regs,
+			   SUN4I_BACKEND_ATTCTL_REG1(layer),
+			   SUN4I_BACKEND_ATTCTL_REG1_LAY_FBFMT,
+			   SUN4I_BACKEND_LAY_FBFMT_RGB565);
+	sun4i_backend_layer_enable(backend, layer, true);
+
+	return 0;
+}
+
 
 static int srgn_atomic_commit_mount_set_yuv_view(struct sun4i_frontend *frontend,
 	struct sun4i_backend *backend, struct drm_srgn_atomic_commit_data *data)
@@ -525,6 +578,9 @@ int srgn_atomic_commit(struct drm_device *drm, void *data, struct drm_file *file
 				break;
 			case DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_ALPHA:
 				ret = srgn_atomic_commit_mount_set_alpha(backend, arg);
+				break;
+			case DRM_SRGN_ATOMIC_COMMIT_MOUNT_CONFIG_RGB565_OSD:
+				ret = srgn_atomic_commit_mount_config_rgb565_osd(backend, arg);
 				break;
 			case DRM_SRGN_ATOMIC_COMMIT_MOUNT_SET_YUV_VIEW:
 				ret = srgn_atomic_commit_mount_set_yuv_view(frontend, backend, arg);

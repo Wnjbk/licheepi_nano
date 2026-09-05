@@ -8,8 +8,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include <drm/drm.h>
-#include <drm/drm_mode.h>
+#include "drm_compat.h"
 
 extern "C" {
 #include "lvgl.h"

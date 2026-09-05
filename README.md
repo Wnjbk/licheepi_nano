@@ -11,6 +11,8 @@ The program is deliberately not an SDL application and does not open
 `/dev/fb0`.  `SIGINT` and `SIGTERM` disable layer 1 before releasing its
 buffers.  It is a candidate, not a normal boot service or a stable baseline.
 
-Build on the Ubuntu host with `make`.  Deploy only to a versioned candidate
+The program carries the small DRM dumb-buffer UAPI subset it needs, so the
+userspace build does not include kernel-internal headers. Build on the Ubuntu
+host with `make`. Deploy only to a versioned candidate
 directory, verify the binary checksum, stop GMenu2X for the isolated test,
 and restore it after the test.

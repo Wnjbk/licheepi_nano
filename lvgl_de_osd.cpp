@@ -275,9 +275,11 @@ int main() {
   BuildUi();
 
   while (g_running && !g_flush_failed) {
-    lv_tick_inc(16);
-    lv_timer_handler();
-    usleep(16000);
+    uint32_t delay_ms = lv_timer_handler();
+    if (delay_ms == LV_NO_TIMER_READY || delay_ms > 1000) delay_ms = 1000;
+    if (delay_ms == 0) delay_ms = 1;
+    usleep(delay_ms * 1000);
+    lv_tick_inc(delay_ms);
   }
 
   if (g_flush_failed) fprintf(stderr, "DE layer-1 page flip failed: %s\n", strerror(errno));

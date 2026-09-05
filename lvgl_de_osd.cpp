@@ -277,7 +277,7 @@ int main() {
   while (g_running && !g_flush_failed) {
     uint32_t delay_ms = lv_timer_handler();
     if (delay_ms == LV_NO_TIMER_READY || delay_ms > 1000) delay_ms = 1000;
-    if (delay_ms == 0) delay_ms = 1;
+    if (delay_ms < 100) delay_ms = 100;
     usleep(delay_ms * 1000);
     lv_tick_inc(delay_ms);
   }

@@ -52,6 +52,7 @@ struct Buffer {
 int g_drm = -1;
 uint32_t g_stride = 0;
 uint32_t g_ticks = 0;
+uint32_t g_flushes = 0;
 lv_obj_t* g_clock = 0;
 volatile sig_atomic_t g_running = 1;
 volatile sig_atomic_t g_flush_failed = 0;
@@ -116,7 +117,11 @@ void Flush(lv_disp_drv_t* display, const lv_area_t*, lv_color_t* colors) {
   command.layer_id = kLayer;
   command.type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_NORMAL;
   command.arg0 = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(colors));
-  if (Submit(&command, 1) != 0) g_flush_failed = 1;
+  if (Submit(&command, 1) != 0) {
+    g_flush_failed = 1;
+  } else {
+    ++g_flushes;
+  }
   lv_disp_flush_ready(display);
 }
 
@@ -136,8 +141,10 @@ void DisableOsd() {
 void Tick(lv_timer_t*) {
   ++g_ticks;
   char text[64];
-  snprintf(text, sizeof(text), "LVGL DE OSD  %02u:%02u", g_ticks / 60, g_ticks % 60);
+  snprintf(text, sizeof(text), "LVGL DE OSD  %02u:%02u  %u FPS",
+           g_ticks / 60, g_ticks % 60, g_flushes);
   lv_label_set_text(g_clock, text);
+  g_flushes = 0;
 }
 
 void BuildUi() {

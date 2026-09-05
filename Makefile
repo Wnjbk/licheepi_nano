@@ -4,7 +4,8 @@ TOOLCHAIN := /opt/gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabi/bin/arm-linu
 
 CC := $(TOOLCHAIN)gcc
 CXX := $(TOOLCHAIN)g++
-CFLAGS := -O2 -Wall -Wextra -I. -I$(LVGL_DIR) -I$(LVGL_DIR)/src \
+CFLAGS := -O2 -Wall -Wextra -march=armv5te -mtune=arm926ej-s \
+	-I. -I$(LVGL_DIR) -I$(LVGL_DIR)/src \
 	-DLV_CONF_INCLUDE_SIMPLE
 CXXFLAGS := $(CFLAGS) -std=c++11
 LDLIBS := -lm -lpthread

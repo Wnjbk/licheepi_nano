@@ -186,7 +186,20 @@ int main() {
 
   Buffer first = {};
   Buffer second = {};
-  if (!CreateBuffer(&first) || !CreateBuffer(&second) || first.pitch != second.pitch) {
+  if (!CreateBuffer(&first)) {
+    perror("create first RGB565 dumb buffer");
+    close(g_drm);
+    return 1;
+  }
+  if (!CreateBuffer(&second)) {
+    perror("create second RGB565 dumb buffer");
+    DestroyBuffer(&first);
+    close(g_drm);
+    return 1;
+  }
+  if (first.pitch != second.pitch) {
+    fprintf(stderr, "RGB565 dumb-buffer pitch mismatch: %u != %u\n",
+            first.pitch, second.pitch);
     DestroyBuffer(&second);
     DestroyBuffer(&first);
     close(g_drm);

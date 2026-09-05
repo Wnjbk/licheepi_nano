@@ -4,6 +4,9 @@
 #define LV_COLOR_DEPTH 16
 #define LV_MEM_SIZE (96U * 1024U)
 #define LV_USE_LOG 0
+#define LV_FONT_MONTSERRAT_12 1
 #define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_MONTSERRAT_16 1
+#define LV_FONT_MONTSERRAT_24 1
 
 #endif

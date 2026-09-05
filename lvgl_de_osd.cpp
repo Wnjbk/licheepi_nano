@@ -276,9 +276,12 @@ int main() {
   BuildUi();
 
   while (g_running && !g_flush_failed) {
+    lv_disp_t* active_display = lv_disp_get_default();
+    const bool dynamic_refresh =
+        (active_display && active_display->inv_p != 0) || lv_anim_count_running() != 0;
     uint32_t delay_ms = lv_timer_handler();
     if (delay_ms == LV_NO_TIMER_READY || delay_ms > 1000) delay_ms = 1000;
-    if (delay_ms < 100) delay_ms = 100;
+    if (!dynamic_refresh && delay_ms < 100) delay_ms = 100;
     usleep(delay_ms * 1000);
     lv_tick_inc(delay_ms);
   }

@@ -294,6 +294,7 @@ static int submit_packet(vd_cedar_ctx *ctx, sh_video_t *sh, void *data, int len)
     }
     packet.nPts = input_pts - ctx->pts_base;
     ctx->fallback_pts = packet.nPts + (sh->fps > 0 ? (int64_t)(1000000.0 / sh->fps) : 33333);
+    packet.bValid = 1;
     packet.nPcr = -1;
     packet.bIsFirstPart = 1;
     packet.bIsLastPart = 1;

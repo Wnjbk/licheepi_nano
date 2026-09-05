@@ -51,6 +51,8 @@ struct Buffer {
 
 int g_drm = -1;
 uint32_t g_stride = 0;
+void* g_first_data = 0;
+void* g_second_data = 0;
 uint32_t g_ticks = 0;
 lv_obj_t* g_clock = 0;
 volatile sig_atomic_t g_running = 1;
@@ -110,13 +112,32 @@ void DestroyBuffer(Buffer* buffer) {
   memset(buffer, 0, sizeof(*buffer));
 }
 
-void Flush(lv_disp_drv_t* display, const lv_area_t*, lv_color_t* colors) {
+void CopyDirtyArea(const lv_area_t* area, lv_color_t* source) {
+  lv_color_t* destination = source == static_cast<lv_color_t*>(g_first_data)
+                            ? static_cast<lv_color_t*>(g_second_data)
+                            : static_cast<lv_color_t*>(g_first_data);
+  const size_t row_bytes = static_cast<size_t>(area->x2 - area->x1 + 1) * sizeof(lv_color_t);
+  for (int y = area->y1; y <= area->y2; ++y) {
+    const size_t offset = static_cast<size_t>(y) * g_stride +
+                          static_cast<size_t>(area->x1) * sizeof(lv_color_t);
+    memcpy(reinterpret_cast<unsigned char*>(destination) + offset,
+           reinterpret_cast<const unsigned char*>(source) + offset, row_bytes);
+  }
+}
+
+void Flush(lv_disp_drv_t* display, const lv_area_t* area, lv_color_t* colors) {
+  /* Direct mode draws dirty rectangles into a full-screen buffer. Keep its
+   * twin coherent before LVGL makes it the next draw target. */
+  CopyDirtyArea(area, colors);
+
+  if (lv_disp_flush_is_last(display)) {
   drm_srgn_atomic_commit_data command;
   memset(&command, 0, sizeof(command));
   command.layer_id = kLayer;
   command.type = DRM_SRGN_ATOMIC_COMMIT_MOUNT_FB_NORMAL;
   command.arg0 = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(colors));
   if (Submit(&command, 1) != 0) g_flush_failed = 1;
+  }
   lv_disp_flush_ready(display);
 }
 
@@ -171,7 +192,7 @@ void BuildUi() {
   lv_obj_set_style_text_color(g_clock, lv_color_hex(0x92d9a4), 0);
   lv_obj_align(g_clock, LV_ALIGN_BOTTOM_LEFT, 32, -28);
   Tick(0);
-  lv_timer_create(Tick, 16, 0);
+  lv_timer_create(Tick, 1000, 0);
 }
 
 }  // namespace
@@ -208,6 +229,8 @@ int main() {
     return 1;
   }
   g_stride = first.pitch;
+  g_first_data = first.data;
+  g_second_data = second.data;
 
   drm_srgn_atomic_commit_data setup[3];
   memset(setup, 0, sizeof(setup));
@@ -238,7 +261,7 @@ int main() {
   lv_disp_drv_init(&display);
   display.hor_res = kWidth;
   display.ver_res = kHeight;
-  display.full_refresh = 1;
+  display.direct_mode = 1;
   display.draw_buf = &draw_buffer;
   display.flush_cb = Flush;
   if (!lv_disp_drv_register(&display)) {

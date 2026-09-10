@@ -30,6 +30,8 @@
 
 	i2c_sii9022: i2c-sii9022 {
 		compatible = "i2c-gpio";
+		/* ESP8089 SPI candidate owns PA1/PA2 while this node is disabled. */
+		status = "disabled";
 		sda-gpios = <&pio 0 1 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 		scl-gpios = <&pio 0 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 		i2c-gpio,sda-open-drain;
@@ -228,15 +230,18 @@
 	compatible = "allwinner,sun8i-h3-spi";
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi1_pa_pins>;
-	status = "disabled";
+	status = "okay";
 
 	esp8089@0 {
 		compatible = "esp,esp8089";
 		reg = <0>;
-		status = "disabled";
+		status = "okay";
 		spi-max-frequency = <10000000>;
 		spi-cpol;
 		spi-cpha;
+		/* CS is grounded; the external driver sets SPI_NO_CS. */
+		esp,poll-interval-ms = <10>;
+		enable-gpios = <&pio 4 12 GPIO_ACTIVE_HIGH>;
 	};
 
 	st7789v: display@0 {

@@ -619,9 +619,9 @@ static const struct musb_platform_ops sunxi_musb_ops = {
 
 static struct musb_fifo_cfg sunxi_musb_mode_cfg[] = {
 	MUSB_EP_FIFO_SINGLE(1, FIFO_TX, 512),
-	MUSB_EP_FIFO_SINGLE(1, FIFO_RX, 512),
+	MUSB_EP_FIFO_SINGLE(1, FIFO_RX, 64),
 	MUSB_EP_FIFO_SINGLE(2, FIFO_RXTX, 512),
-	MUSB_EP_FIFO_SINGLE(3, FIFO_RXTX, 256),
+	MUSB_EP_FIFO_SINGLE(3, FIFO_RXTX, 512),
 };
 
 /* H3/V3s OTG supports only 4 endpoints */

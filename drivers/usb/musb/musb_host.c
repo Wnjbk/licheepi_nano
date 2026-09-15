@@ -2112,6 +2112,11 @@ success:
 	}
 	qh->hw_ep = hw_ep;
 	qh->hep->hcpriv = qh;
+	if (qh->dev && le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda)
+		dev_info(musb->controller,
+			 "rtl8723bu map: usb ep%d %s type=%u -> musb ep%d mux=%u maxp=%u\n",
+			 qh->epnum, is_in ? "in" : "out", qh->type,
+			 hw_ep->epnum, qh->mux, qh->maxpacket);
 	if (idle)
 		musb_start_urb(musb, is_in, qh);
 	return 0;

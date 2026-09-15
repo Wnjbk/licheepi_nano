@@ -1448,6 +1448,12 @@ fifo_setup(struct musb *musb, struct musb_hw_ep  *hw_ep,
 	 */
 	musb->epmask |= (1 << hw_ep->epnum);
 
+	dev_info(musb->controller,
+		 "musb fifo setup: ep%d style=%d tx_addr=%04x tx_size=%02x rx_addr=%04x rx_size=%02x\n",
+		 hw_ep->epnum, cfg->style, musb_readw(mbase, MUSB_TXFIFOADD),
+		 musb_readb(mbase, MUSB_TXFIFOSZ),
+		 musb_readw(mbase, MUSB_RXFIFOADD),
+		 musb_readb(mbase, MUSB_RXFIFOSZ));
 	return offset + (maxpacket << ((c_size & MUSB_FIFOSZ_DPB) ? 1 : 0));
 }
 

@@ -2009,17 +2009,6 @@ static int musb_schedule(
 		goto success;
 	}
 
-	/* Keep the RTL8723BU Bluetooth ACL IN queue off Wi-Fi's RX endpoint. */
-	if (is_in && qh->dev &&
-	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda &&
-	    qh->epnum == 2 && qh->type == USB_ENDPOINT_XFER_BULK) {
-		hw_ep = musb->endpoints + 3;
-		if (!musb_ep_get_qh(hw_ep, 1)) {
-			idle = 1;
-			qh->mux = 0;
-			goto success;
-		}
-	}
 
 	/* else, periodic transfers get muxed to other endpoints */
 

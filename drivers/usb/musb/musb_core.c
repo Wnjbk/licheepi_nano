@@ -1629,6 +1629,10 @@ static int musb_core_init(u16 musb_type, struct musb *musb)
 		strcat(aInfo, ", SoftConn");
 
 	pr_debug("%s: ConfigData=0x%02x (%s)\n", musb_driver_name, reg, aInfo);
+	dev_info(musb->controller,
+		 "musb fifo audit: ConfigData=%02x EPInfo=%02x RAMInfo=%02x\n",
+		 reg, musb_readb(mbase, MUSB_EPINFO),
+		 musb_readb(mbase, MUSB_RAMINFO));
 
 	if (MUSB_CONTROLLER_MHDRC == musb_type) {
 		musb->is_multipoint = 1;
@@ -1709,6 +1713,13 @@ static int musb_core_init(u16 musb_type, struct musb *musb)
 		}
 		if (!(hw_ep->max_packet_sz_tx || hw_ep->max_packet_sz_rx))
 			musb_dbg(musb, "hw_ep %d not configured", i);
+		musb_ep_select(mbase, i);
+		dev_info(musb->controller,
+			 "musb fifo audit: ep%d tx_addr=%04x tx_size=%02x rx_addr=%04x rx_size=%02x\n",
+			 i, musb_readw(mbase, MUSB_TXFIFOADD),
+			 musb_readb(mbase, MUSB_TXFIFOSZ),
+			 musb_readw(mbase, MUSB_RXFIFOADD),
+			 musb_readb(mbase, MUSB_RXFIFOSZ));
 	}
 
 	return 0;

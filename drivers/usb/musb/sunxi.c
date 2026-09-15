@@ -613,21 +613,14 @@ static const struct musb_platform_ops sunxi_musb_ops = {
 	.post_root_reset_end = sunxi_musb_post_root_reset_end,
 };
 
-/* Allwinner OTG supports up to 5 endpoints */
-#define SUNXI_MUSB_MAX_EP_NUM	6
-#define SUNXI_MUSB_RAM_BITS	11
+/* F1C200S has three bidirectional data endpoints and a 2 KiB FIFO SRAM. */
+#define SUNXI_MUSB_MAX_EP_NUM	4
+#define SUNXI_MUSB_RAM_BITS	9
 
 static struct musb_fifo_cfg sunxi_musb_mode_cfg[] = {
-	MUSB_EP_FIFO_SINGLE(1, FIFO_TX, 512),
-	MUSB_EP_FIFO_SINGLE(1, FIFO_RX, 512),
-	MUSB_EP_FIFO_SINGLE(2, FIFO_TX, 512),
-	MUSB_EP_FIFO_SINGLE(2, FIFO_RX, 512),
-	MUSB_EP_FIFO_SINGLE(3, FIFO_TX, 512),
-	MUSB_EP_FIFO_SINGLE(3, FIFO_RX, 512),
-	MUSB_EP_FIFO_SINGLE(4, FIFO_TX, 512),
-	MUSB_EP_FIFO_SINGLE(4, FIFO_RX, 512),
-	MUSB_EP_FIFO_SINGLE(5, FIFO_TX, 512),
-	MUSB_EP_FIFO_SINGLE(5, FIFO_RX, 512),
+	MUSB_EP_FIFO_SINGLE(1, FIFO_RXTX, 512),
+	MUSB_EP_FIFO_SINGLE(2, FIFO_RXTX, 512),
+	MUSB_EP_FIFO_SINGLE(3, FIFO_RXTX, 512),
 };
 
 /* H3/V3s OTG supports only 4 endpoints */

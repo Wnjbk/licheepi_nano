@@ -2112,7 +2112,7 @@ success:
 	}
 	qh->hw_ep = hw_ep;
 	qh->hep->hcpriv = qh;
-	if (qh->dev && qh->epnum &&
+	if (is_in && qh->dev && qh->epnum &&
 	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0x0bda)
 		dev_info(musb->controller,
 			 "rtl8723bu map: usb ep%d %s type=%u -> musb ep%d mux=%u maxp=%u\n",

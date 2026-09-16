@@ -50,3 +50,12 @@ Build: no build.
 Deploy and rollback: temporary modules and BlueALSA runtime transferred by SCP; existing /etc/dbus-1/system.d/bluealsa.conf policy and persisted Wt-070 pairing were reused. ALSA config and temporary BlueALSA plugin were restored after the audio test.
 Tests: wlan0 associated; Wt-070 discovered at RSSI -58, connected, paired, trusted, and services-resolved. BlueALSA returned an SBC 48000 Hz stereo PCM. speaker-test completed Front Left and Front Right. HCI ACL counters reached 36 RX and 36 TX with zero errors.
 Decision: pending. This is a fresh boot-session regression, but physical power removal was not independently observed. Keep it separate from the required three physical cold-boot acceptance cycles and still run AIC8800/Miracast regression.
+
+## 2026-09-16 / pass / Cedar hard decode with Wt-070 audio
+Hypothesis: Cedar hard video decode can send its audio stream through the active BlueALSA default ALSA device without disrupting WLAN or HCI.
+Files: no source change. Runtime-only wrapper configured /etc/asound.conf and /usr/lib/alsa-lib/libasound_module_pcm_bluealsa.so for the player lifetime; video file /root/roms/video/bad.mp4.
+Commit: a9417b39e2eb4a5bf0c4a9d6857260ebf3879c4d is the prior worktree-log record.
+Build: no build.
+Deploy and rollback: Cedar wrapper restores the prior ALSA config and removes the temporary plugin when it exits. BlueALSA remains under /tmp for this boot session.
+Tests: /root/cedar_drm_player hard-decoded bad.mp4 and reported playback started, H.264 plugin registration, AAC audio codec 44100 Hz two channels, and audio output default. HCI ACL counters increased to RX 41 and TX 272 with zero errors. User confirmed audible audio from Wt-070.
+Decision: pass for this boot session. Physical cold-boot count and AIC/Miracast regression remain pending before baseline promotion.

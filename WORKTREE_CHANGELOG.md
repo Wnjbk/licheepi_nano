@@ -41,3 +41,12 @@ Build: BlueALSA runtime from /home/wnk/LicheePi_Nano/third_party/bluealsa-f1c200
 Deploy and rollback: runtime is under /tmp and disappears at reboot. D-Bus policy is a candidate persistent rootfs change and is not integrated into an image. BlueALSA ALSA plugin was copied only for the playback test and removed afterward.
 Tests: Wt-070 12:11:71:41:9C:4A discovered, paired, trusted, connected, and services-resolved. BlueALSA PCM is SBC, 2 channels, 48000 Hz. speaker-test completed Front Left and Front Right through A2DP. Concurrent wlan0 ping was 15/15 with 0 percent packet loss. HCI recorded zero errors.
 Decision: pending. Confirm actual audible playback with the user, test sustained audio under WLAN traffic, complete three physical cold boots, and regress AIC8800 Miracast before promoting #237 to a baseline.
+
+## 2026-09-16 / pending regression / post-reboot BlueALSA audio
+Hypothesis: the #237 bounded FIFO layout can re-establish real RTL8723BU A2DP after a fresh board boot while wlan0 is active.
+Files: no source change. Temporary board runtime only: /tmp/btrtl.ko, /tmp/btbcm.ko, /tmp/btintel.ko, /tmp/btusb.ko, and /tmp/bluealsa/runtime.
+Commit: 83db67f06d13930e1e1dc7d3bcd72013ba3db644 remains the active source record.
+Build: no build.
+Deploy and rollback: temporary modules and BlueALSA runtime transferred by SCP; existing /etc/dbus-1/system.d/bluealsa.conf policy and persisted Wt-070 pairing were reused. ALSA config and temporary BlueALSA plugin were restored after the audio test.
+Tests: wlan0 associated; Wt-070 discovered at RSSI -58, connected, paired, trusted, and services-resolved. BlueALSA returned an SBC 48000 Hz stereo PCM. speaker-test completed Front Left and Front Right. HCI ACL counters reached 36 RX and 36 TX with zero errors.
+Decision: pending. This is a fresh boot-session regression, but physical power removal was not independently observed. Keep it separate from the required three physical cold-boot acceptance cycles and still run AIC8800/Miracast regression.

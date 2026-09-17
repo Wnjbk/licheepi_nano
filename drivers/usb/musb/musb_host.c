@@ -2008,6 +2008,20 @@ static int musb_schedule(
 		hw_ep = musb->control_ep;
 		goto success;
 	}
+	/*
+	 * F1C200S has one nonshared 512-byte bulk RX FIFO at EP1. Keep
+	 * AIC8800's high-rate USB RX off shared FIFO directions; RTL8723BU
+	 * uses the normal allocator and selects EP2 RX.
+	 */
+	if (is_in && qh->type == USB_ENDPOINT_XFER_BULK && qh->dev &&
+	    le16_to_cpu(qh->dev->descriptor.idVendor) == 0xa69c) {
+		hw_ep = musb->bulk_ep;
+		if (!musb_ep_get_qh(hw_ep, 1)) {
+			idle = 1;
+			qh->mux = 0;
+			goto success;
+		}
+	}
 
 
 	/* else, periodic transfers get muxed to other endpoints */

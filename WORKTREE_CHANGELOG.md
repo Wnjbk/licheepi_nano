@@ -68,3 +68,15 @@ Build: exact documented top-level zImage command with LOCALVERSION=; current out
 Deploy and rollback: none while board offline. Preserve #237 board zImage and sunxi.ko before any later deployment.
 Tests: board offline; no runtime test.
 Decision: pending.
+
+## 2026-09-18 / planned / TK032F8004 panel graph enable
+Hypothesis: the #237 DTS leaves the DPI panel and its LG4573A GPIO initializer
+disabled while routing TCON0 to SII9022, so the built-in sun4i DRM driver has
+no enabled panel connector to bind. Select the external TK032F8004 panel.
+Files: arch/arm/boot/dts/suniv-f1c100s-licheepi-nano.dts.
+Build: documented DTS-only target with the documented Linaro toolchain.
+Deploy and rollback: backup the board DTB before any replacement; restoring it
+returns the SII9022 display route. No zImage or module change is planned.
+Tests: DTB syntax/decompile, cold boot, tk032 init probe, DRM card0/fb0, then
+panel illumination. USB, wlan0, and AIC remain protected regressions.
+Decision: pending.

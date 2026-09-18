@@ -87,3 +87,12 @@ Hypothesis: restore the parent USB FIFO SII9022 display graph only.
 Files: arch/arm/boot/dts/suniv-f1c100s-licheepi-nano.dts
 Protected: zImage MUSB USB RTL AIC rootfs unchanged.
 Rollback: f09b225 and board DTB backup before deployment.
+Commit: 98a2533f1e71aa6512fd191c6e5d9a342bdd6590
+Build: DTS_only_Linaro_LOCALVERSION_empty
+Artifact:
+Test: board cold boot with restored parent USB FIFO SII DTB md5 dc40f1b4c19ccaa8710ef49204889f86
+Protected: USB hub RTL8723BU and AIC cold PID 8d80 remained present.
+Artifact_md5_dc40f1b4c19ccaa8710ef49204889f86
+Result_display_failed_fb0_missing_card0_missing
+Runtime_i2c_0_0039_sii902x_bind_ENODEV_after_tk_module_unload
+Decision_pending_no_more_display_or_AIC_changes_in_this_test

@@ -32,7 +32,6 @@
 		compatible = "i2c-gpio";
 		sda-gpios = <&pio 0 1 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 		scl-gpios = <&pio 0 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-		status = "disabled";
 		i2c-gpio,sda-open-drain;
 		i2c-gpio,scl-open-drain;
 		#address-cells = <1>;
@@ -47,6 +46,7 @@
 
 			port {
 				sii9022_input: endpoint {
+					remote-endpoint = <&tcon0_out_lcd>;
 					bus-width = <18>;
 				};
 			};
@@ -54,38 +54,17 @@
 	};
 
 	panel: panel {
-		compatible = "panel-dpi";
-		status = "okay";
-		width-mm = <69>;
-		height-mm = <42>;
-		bpc = <6>;
-		bus-format = <0x1009>; /* MEDIA_BUS_FMT_RGB666_1X18 */
+		status = "disabled";
+		compatible = "lattland,mostima", "simple-panel";
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		display-timings {
-			native-mode = <&tk032f8004_timing>;
-			tk032f8004_timing: timing0 {
-				clock-frequency = <29520000>;
-				hactive = <480>;
-				vactive = <800>;
-				hfront-porch = <50>;
-				hback-porch = <40>;
-				hsync-len = <30>;
-				vfront-porch = <8>;
-				vback-porch = <8>;
-				vsync-len = <4>;
-				hsync-active = <1>;
-				vsync-active = <1>;
-				de-active = <1>;
-				pixelclk-active = <0>;
-			};
-		};
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-		port {
-			panel_input: endpoint {
-				remote-endpoint = <&tcon0_out_tk032f8004>;
-				bus-width = <18>;
+ panel_input: endpoint@0 {
 			};
 		};
 	};
@@ -206,14 +185,6 @@
 			ST7701INIT_END_WRITE
 			ST7701INIT_DELAY 20
 		>;
-	};
-
-	tk032f8004_init: tk032f8004-init {
-		compatible = "tk,tk032f8004-init";
-		status = "okay";
-		cs-gpios = <&pio 0 0 GPIO_ACTIVE_HIGH>;
-		sclk-gpios = <&pio 0 2 GPIO_ACTIVE_HIGH>;
-		mosi-gpios = <&pio 0 1 GPIO_ACTIVE_HIGH>;
 	};
 
 	pcm5102a: pcm5102a {
@@ -350,9 +321,9 @@
 };
 
 &tcon0_out {
-	tcon0_out_tk032f8004: endpoint@0 {
+	tcon0_out_lcd: endpoint@0 {
 		reg = <0>;
-		remote-endpoint = <&panel_input>;
+		remote-endpoint = <&sii9022_input>;
 		bus-width = <18>;
 	};
 };

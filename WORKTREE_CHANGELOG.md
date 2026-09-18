@@ -80,3 +80,10 @@ returns the SII9022 display route. No zImage or module change is planned.
 Tests: DTB syntax/decompile, cold boot, tk032 init probe, DRM card0/fb0, then
 panel illumination. USB, wlan0, and AIC remain protected regressions.
 Decision: pending.
+
+
+2026-09-18 planned restore parent USB FIFO SII9022 DTS
+Hypothesis: restore the parent USB FIFO SII9022 display graph only.
+Files: arch/arm/boot/dts/suniv-f1c100s-licheepi-nano.dts
+Protected: zImage MUSB USB RTL AIC rootfs unchanged.
+Rollback: f09b225 and board DTB backup before deployment.

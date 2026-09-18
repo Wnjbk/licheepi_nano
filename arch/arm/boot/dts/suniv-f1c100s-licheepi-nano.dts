@@ -64,7 +64,6 @@
 		#size-cells = <0>;
 
 		panel-timing {
-			timing0 {
 				clock-frequency = <29520000>;
 				hactive = <480>;
 				vactive = <800>;
@@ -77,8 +76,7 @@
 				hsync-active = <1>;
 				vsync-active = <1>;
 				de-active = <1>;
-				pixelclk-active = <0>;
-			};
+			pixelclk-active = <0>;
 		};
 
 		port {

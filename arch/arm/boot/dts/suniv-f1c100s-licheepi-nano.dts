@@ -63,9 +63,8 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		display-timings {
-			native-mode = <&tk032f8004_timing>;
-			tk032f8004_timing: timing0 {
+		panel-timing {
+			timing0 {
 				clock-frequency = <29520000>;
 				hactive = <480>;
 				vactive = <800>;

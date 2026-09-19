@@ -377,6 +377,13 @@ static void musb_advance_schedule(struct musb *musb, struct urb *urb,
 			qh = NULL;
 			break;
 		}
+	} else if (!is_in && qh->mux == 1 &&
+		   qh->ring.next != qh->ring.prev) {
+		struct list_head *head = qh->ring.prev;
+
+		list_move_tail(&qh->ring, head);
+		qh = first_qh(head);
+		musb_ep_set_qh(ep, is_in, qh);
 	}
 
 	if (qh != NULL && qh->is_ready) {

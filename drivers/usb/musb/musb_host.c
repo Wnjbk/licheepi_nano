@@ -864,12 +864,19 @@ finish:
 
 			if (csr & (MUSB_RXCSR_RXPKTRDY
 					| MUSB_RXCSR_DMAENAB
-					| MUSB_RXCSR_H_REQPKT))
+					| MUSB_RXCSR_H_REQPKT)) {
 				ERR("broken !rx_reinit, ep%d csr %04x\n",
 						hw_ep->epnum, csr);
+				musb_rx_reinit(musb, qh, epnum);
+				csr = musb->io.set_toggle(qh, is_out, urb);
 
-			/* scrub any stale state, leaving toggle alone */
-			csr &= MUSB_RXCSR_DISNYET;
+				if (qh->type == USB_ENDPOINT_XFER_INT)
+					csr |= MUSB_RXCSR_DISNYET;
+
+			} else {
+				/* scrub any stale state, leaving toggle alone */
+				csr &= MUSB_RXCSR_DISNYET;
+			}
 		}
 
 		/* kick things off */

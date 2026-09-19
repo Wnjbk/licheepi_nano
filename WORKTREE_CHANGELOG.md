@@ -107,3 +107,13 @@ Build_DTB_md5_81c73b94251e2e48e8ba1f65c082dbb5
 Cold_boot_panel_simple_bound_sun4i_drm_card0_fb0_present
 Protected_USB_hub_RTL8723BU_AIC_8d80_present
 Decision_panel_kernel_nodes_pass_visual_panel_confirmation_pending
+
+## 2026-09-18 / runtime failure / AIC P2P GO radio activation
+Hypothesis: the confirmed TK032 LCD/DRM baseline can progress through the existing matched AIC8800 Miracast path before Cedar starts.
+Files: no kernel source, DTB, module, rootfs, or launch script changed. Runtime commands only.
+Build: none.
+Deploy and rollback: none. The active display DTB remained MD5 81c73b94251e2e48e8ba1f65c082dbb5. Old Cedar FIFO supervisor, player wrapper, and Cedar player PIDs were stopped before test; no persistent board file was replaced.
+Tests: the matching AIC set passed exactly a69c:8d80 -> a69c:8d83 -> wlan1. Bare wpa24_aic_wfd_supplicant on wlan1 stayed live; its control socket answered and WFD subelements 0, 1, and 6 were accepted. No Cedar, DHCP, RTSP sink, or FIFO player was active.
+Failure: p2p_group_add freq=5805 reproducibly reset the entire board before DHCP, capture, or display could start. After boot, AIC was again cold PID 8d80. The new boot had no retained OOM or panic trace.
+Decision: do not use the old all-in-one Miracast wrappers and do not attribute this to panel/Cedar memory. The active blocker is the 5 GHz P2P radio-enable reset; next work must isolate AIC power/firmware behavior at GO creation with serial observation before attempting phone or player stages.
+Failure-update: LOWMEM_TUNE=0, STOP_DBUS=0, DROP_PAGE_CACHE=0, CAPTURE_MODE=null prevents the reset, but GO still fails before DHCP/capture/player: DIRECT-XV appears, then WPA reports Failed to set beacon parameters, Could not connect to kernel driver, and wlan1 disappears. Active blocker is AIC AP/GO beacon configuration, not panel/Cedar.\n
